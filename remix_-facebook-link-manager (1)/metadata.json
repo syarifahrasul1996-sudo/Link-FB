@@ -1,0 +1,6 @@
+{
+  "name": "Facebook Link Manager",
+  "description": "An interface to manage, search, and track completion of Facebook group and post links synced from a public Google Sheet, with automatic Malaysia midnight resets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
