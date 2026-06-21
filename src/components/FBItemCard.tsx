@@ -1,13 +1,14 @@
 // components/FBItemCard.tsx
 import React from 'react';
 import { FacebookItem } from '../types';
-import { ExternalLink, Check, Bookmark, FileText, Users } from 'lucide-react';
+import { ExternalLink, Check, Edit2 } from 'lucide-react';
 
 interface FBItemCardProps {
   key?: string;
   item: FacebookItem;
   isCompleted: boolean;
   onToggleComplete: (id: string) => void;
+  onEdit: (item: FacebookItem) => void;
   deepLinkMode: boolean;
 }
 
@@ -15,6 +16,7 @@ export default function FBItemCard({
   item,
   isCompleted,
   onToggleComplete,
+  onEdit,
   deepLinkMode,
 }: FBItemCardProps) {
   // Always use the direct targetUrl to comply with standard browser link opening
@@ -32,6 +34,11 @@ export default function FBItemCard({
     onToggleComplete(item.id);
   };
 
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(item);
+  };
+
   // Get accent styles based on category type
   const getCategoryStyles = () => {
     switch (item.category) {
@@ -39,20 +46,17 @@ export default function FBItemCard({
         return {
           borderClass: 'border-l-3 border-l-blue-500',
           hoverBorder: 'hover:border-blue-305',
-          icon: <Bookmark className="w-3 h-3 text-blue-500 shrink-0" />,
         };
       case 'my_post':
         return {
           borderClass: 'border-l-3 border-l-sky-500',
           hoverBorder: 'hover:border-sky-305',
-          icon: <FileText className="w-3 h-3 text-sky-500 shrink-0" />,
         };
       case 'group':
       default:
         return {
           borderClass: 'border-l-3 border-l-purple-500',
           hoverBorder: 'hover:border-purple-305',
-          icon: <Users className="w-3 h-3 text-purple-500 shrink-0" />,
         };
     }
   };
@@ -108,25 +112,30 @@ export default function FBItemCard({
         </a>
       </div>
 
-      <a
-        href={finalLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => {
-          e.stopPropagation(); // Avoid double toggling via card onClick
-          handleLinkClick();
-        }}
-        className="flex items-center gap-1.5 shrink-0 pl-1 cursor-pointer"
-      >
-        {/* Category specific dynamic icon indicator */}
-        <span className="opacity-45 group-hover:opacity-100 transition-opacity">
-          {styles.icon}
-        </span>
+      <div className="flex items-center gap-1.5 shrink-0 pl-1">
+        {/* Edit button */}
+        <button 
+          onClick={handleEditClick} 
+          className="p-2 rounded-md text-slate-400 opacity-60 hover:bg-slate-200 hover:text-slate-600 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer"
+          title="Edit link"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
         {/* Link indicator */}
-        <span className="p-1 rounded-md bg-slate-50 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity">
+        <a
+          href={finalLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.stopPropagation(); // Avoid double toggling via card onClick
+            handleLinkClick();
+          }}
+          className="p-1 rounded-md bg-slate-50 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer"
+          title="Open direct raw folder/media link"
+        >
           <ExternalLink className="w-2.5 h-2.5" />
-        </span>
-      </a>
+        </a>
+      </div>
     </div>
   );
 }
