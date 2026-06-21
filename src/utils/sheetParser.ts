@@ -121,47 +121,41 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
     if (!label.trim()) {
       continue;
     }
+
+    // Helper to create an item
+    const createItem = (category: 'specific' | 'my_post' | 'group', url: string, suffix: string): FacebookItem => {
+      const targetUrl = url.trim();
+      const deepLinkUrl = targetUrl.startsWith('http') 
+        ? `fb://facewebmodal/f?href=${encodeURIComponent(targetUrl)}`
+        : targetUrl;
+      
+      return {
+        id: `${tabId}-row-${i}-${suffix}`,
+        label: label.trim(),
+        groupLink: groupLink.trim(),
+        groupPostLink: groupPostLink.trim(),
+        specificPostLink: specificPostLink.trim(),
+        category,
+        targetUrl,
+        deepLinkUrl
+      };
+    };
     
-    // Choose high-precedence target URL
-    // If D available -> D, else C -> C, else B -> B
-    let targetUrl = '';
-    let category: 'specific' | 'my_post' | 'group' = 'group';
-    
-    const hasD = isUrlValid(specificPostLink);
-    const hasC = isUrlValid(groupPostLink);
-    const hasB = isUrlValid(groupLink);
-    
-    if (hasD) {
-      targetUrl = specificPostLink.trim();
-      category = 'specific';
-    } else if (hasC) {
-      targetUrl = groupPostLink.trim();
-      category = 'my_post';
-    } else if (hasB) {
-      targetUrl = groupLink.trim();
-      category = 'group';
-    } else {
-      // In case no valid url is provided, fallback to whatever text is there
-      targetUrl = (specificPostLink || groupPostLink || groupLink || '').trim();
-      category = 'group';
+    // Create items for each valid link found
+    if (isUrlValid(specificPostLink)) {
+      items.push(createItem('specific', specificPostLink, 'specific'));
+    }
+    if (isUrlValid(groupPostLink)) {
+      items.push(createItem('my_post', groupPostLink, 'mypost'));
+    }
+    if (isUrlValid(groupLink)) {
+      items.push(createItem('group', groupLink, 'group'));
     }
     
-    // Helper to generate a deep link scheme for the Facebook app
-    // The standard fb scheme that works: fb://facewebmodal/f?href={url}
-    const deepLinkUrl = targetUrl.startsWith('http') 
-      ? `fb://facewebmodal/f?href=${encodeURIComponent(targetUrl)}`
-      : targetUrl;
-    
-    items.push({
-      id: `${tabId}-row-${i}`,
-      label: label.trim(),
-      groupLink: groupLink.trim(),
-      groupPostLink: groupPostLink.trim(),
-      specificPostLink: specificPostLink.trim(),
-      category,
-      targetUrl,
-      deepLinkUrl
-    });
+    // Fallback: If no links at all, still add to 'group' category with empty URL
+    if (!isUrlValid(specificPostLink) && !isUrlValid(groupPostLink) && !isUrlValid(groupLink)) {
+        items.push(createItem('group', groupLink, 'group'));
+    }
   }
   
   return items;
