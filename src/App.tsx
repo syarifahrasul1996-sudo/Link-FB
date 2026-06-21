@@ -301,8 +301,12 @@ export default function App() {
   // --- Progress Indicators (per account tab level) ---
   const activeTabProgressObject: AccountProgress = useMemo(() => {
     const activeItems = rawItemsForActiveTab;
-    const total = activeItems.length;
-    const completed = activeItems.filter(item => completedIds.has(item.id)).length;
+    
+    const groupTotal = activeItems.filter(item => item.category === 'group').length;
+    const groupCompleted = activeItems.filter(item => item.category === 'group' && completedIds.has(item.id)).length;
+
+    const total = groupTotal;
+    const completed = groupCompleted;
     const percentage = total > 0 ? (completed / total) * 100 : 0;
 
     // Categorized statistics
@@ -311,9 +315,6 @@ export default function App() {
 
     const myPostTotal = activeItems.filter(item => item.category === 'my_post').length;
     const myPostCompleted = activeItems.filter(item => item.category === 'my_post' && completedIds.has(item.id)).length;
-
-    const groupTotal = activeItems.filter(item => item.category === 'group').length;
-    const groupCompleted = activeItems.filter(item => item.category === 'group' && completedIds.has(item.id)).length;
 
     return {
       total,
@@ -333,8 +334,9 @@ export default function App() {
     
     tabs.forEach(tab => {
       const items = liveTabItems[tab.id] || [];
-      const total = items.length;
-      const completed = items.filter(item => completedIds.has(item.id)).length;
+      const groupItems = items.filter(item => item.category === 'group');
+      const total = groupItems.length;
+      const completed = groupItems.filter(item => completedIds.has(item.id)).length;
       const percentage = total > 0 ? (completed / total) * 100 : 0;
       
       rawMap[tab.id] = { total, completed, percentage };
@@ -568,12 +570,16 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Interactive Grid & Squares Progress Tracker */}
-            <ProgressTracker 
-              progress={activeTabProgressObject} 
-              accountName={activeTabName} 
-              items={rawItemsForActiveTab}
-              completedIds={completedIds}
-            />             {/* Filter and Control Bar */}
+            {activeTabName !== 'Resume Account (Account 1)' && (
+              <ProgressTracker 
+                progress={activeTabProgressObject} 
+                accountName={activeTabName} 
+                items={rawItemsForActiveTab}
+                completedIds={completedIds}
+              />
+            )}
+            
+            {/* Filter and Control Bar */}
             <div className="bg-white/45 backdrop-blur-md rounded-2xl p-5 border border-white/55 shadow-xs flex flex-col justify-center">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
