@@ -6,7 +6,6 @@ import { parseCSV, getGoogleSheetDownloadUrl, transformRowsToItems } from './uti
 import { getMalaysiaDateString, getMsUntilMalaysiaMidnight, formatMillisecondsToCountdown } from './utils/timezone';
 import FBItemCard from './components/FBItemCard';
 import EditLinkModal from './components/EditLinkModal';
-import ProgressTracker from './components/ProgressTracker';
 import SettingsPanel from './components/SettingsPanel';
 
 import {
@@ -461,7 +460,7 @@ export default function App() {
                     {activeTabName}
                   </span>
                   <span className="block text-[11px] font-medium text-slate-500 mt-0.5">
-                    {(allTabsProgressInfo[selectedTabId]?.completed || 0)} / {(allTabsProgressInfo[selectedTabId]?.total || 0)} Links Completed ({Math.round(allTabsProgressInfo[selectedTabId]?.percentage || 0)}%)
+                    {(allTabsProgressInfo[selectedTabId]?.completed || 0)} / {(allTabsProgressInfo[selectedTabId]?.total || 0)} Links
                   </span>
                 </div>
               </div>
@@ -569,16 +568,6 @@ export default function App() {
         {!loading && (
           <div className="space-y-6">
             
-            {/* Interactive Grid & Squares Progress Tracker */}
-            {activeTabName !== 'Resume Account (Account 1)' && (
-              <ProgressTracker 
-                progress={activeTabProgressObject} 
-                accountName={activeTabName} 
-                items={rawItemsForActiveTab}
-                completedIds={completedIds}
-              />
-            )}
-            
             {/* Filter and Control Bar */}
             <div className="bg-white/45 backdrop-blur-md rounded-2xl p-5 border border-white/55 shadow-xs flex flex-col justify-center">
               <div className="flex items-center justify-between mb-2">
@@ -589,12 +578,12 @@ export default function App() {
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full pl-10 pr-4 py-3 bg-white/55 hover:bg-white/90 border border-slate-200 rounded-xl leading-none text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium backdrop-blur-xs"
+                  className="w-full pl-9 pr-4 py-2 bg-white/55 hover:bg-white/90 border border-slate-200 rounded-xl leading-none text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium backdrop-blur-xs"
                   placeholder="Search links (e.g. 'Community', 'Main')..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               </div>
             </div>            {/* MOBILE ONLY COLUMN CONTROLLER SWITCHER */}
             <div className="lg:hidden space-y-1.5 animate-fade-in px-0.5">
