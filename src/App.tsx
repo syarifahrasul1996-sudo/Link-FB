@@ -511,16 +511,6 @@ export default function App() {
                           )}
                         </div>
                       </div>
-
-                      {/* Mini inline progress track */}
-                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-450 rounded-full ${
-                            isSelected ? 'bg-blue-600' : 'bg-slate-450'
-                          }`}
-                          style={{ width: `${stats.percentage}%` }}
-                        />
-                      </div>
                     </button>
                   );
                 })}
@@ -569,21 +559,21 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Filter and Control Bar */}
-            <div className="bg-white/45 backdrop-blur-md rounded-2xl p-5 border border-white/55 shadow-xs flex flex-col justify-center">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-white/45 backdrop-blur-md rounded-2xl p-3.5 border border-white/55 shadow-xs flex flex-col justify-center">
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Filter Links by Name
+                  Search & Filter
                 </label>
               </div>
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full pl-9 pr-4 py-2 bg-white/55 hover:bg-white/90 border border-slate-200 rounded-xl leading-none text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium backdrop-blur-xs"
+                  className="w-full pl-9 pr-4 py-1.5 bg-white/55 hover:bg-white/90 border border-slate-200 rounded-xl leading-none text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium backdrop-blur-xs"
                   placeholder="Search links (e.g. 'Community', 'Main')..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2" />
               </div>
             </div>            {/* MOBILE ONLY COLUMN CONTROLLER SWITCHER */}
             <div className="lg:hidden space-y-1.5 animate-fade-in px-0.5">
