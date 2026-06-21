@@ -5,6 +5,7 @@ import { DEFAULT_SHEET_URL, DEFAULT_TABS, MOCK_DATA_BY_TAB } from './mockData';
 import { parseCSV, getGoogleSheetDownloadUrl, transformRowsToItems } from './utils/sheetParser';
 import { getMalaysiaDateString, getMsUntilMalaysiaMidnight, formatMillisecondsToCountdown } from './utils/timezone';
 import FBItemCard from './components/FBItemCard';
+import EditLinkModal from './components/EditLinkModal';
 import ProgressTracker from './components/ProgressTracker';
 import SettingsPanel from './components/SettingsPanel';
 
@@ -86,6 +87,23 @@ export default function App() {
 
   // Cached spreadsheet parsed data
   const [liveTabItems, setLiveTabItems] = useState<Record<string, FacebookItem[]>>({});
+  const [editingItem, setEditingItem] = useState<FacebookItem | null>(null);
+  
+  const [urlOverrides, setUrlOverrides] = useState<Record<string, string>>(() => {
+    const raw = localStorage.getItem('fb_link_manager_url_overrides');
+    return raw ? JSON.parse(raw) : {};
+  });
+
+  const handleEdit = (item: FacebookItem) => {
+    setEditingItem(item);
+  };
+  
+  const handleSaveOverride = (id: string, newUrl: string) => {
+    const nextOverrides = { ...urlOverrides, [id]: newUrl };
+    setUrlOverrides(nextOverrides);
+    localStorage.setItem('fb_link_manager_url_overrides', JSON.stringify(nextOverrides));
+    setEditingItem(null);
+  };
 
   // Mobile column active tab state
   const [activeMobileColumn, setActiveMobileColumn] = useState<'specific' | 'my_post' | 'group'>('specific');
@@ -234,23 +252,6 @@ export default function App() {
     saveCompletedIdsToStorage(updated);
   };
 
-  const handleResetCurrentTabProgress = () => {
-    if (window.confirm("Are you sure you want to clean completed status for this tab?")) {
-      setCompletedIds(prev => {
-        const updated = new Set<string>(prev);
-        // Remove all elements belonging to current active tab id
-        const prefix = `${selectedTabId}-`;
-        Array.from(updated).forEach((id: string) => {
-          if (id.startsWith(prefix)) {
-            updated.delete(id);
-          }
-        });
-        saveCompletedIdsToStorage(updated);
-        return updated;
-      });
-    }
-  };
-
   // --- Get Items Computed based on source selection ---
   const rawItemsForActiveTab: FacebookItem[] = useMemo(() => {
     return liveTabItems[selectedTabId] || [];
@@ -268,12 +269,22 @@ export default function App() {
     const group: FacebookItem[] = [];
 
     filtered.forEach(item => {
-      if (item.category === 'specific') {
-        specific.push(item);
-      } else if (item.category === 'my_post') {
-        my_post.push(item);
-      } else {
-        group.push(item);
+      // Apply override
+      const override = urlOverrides[item.id];
+      const targetItem = override 
+        ? { 
+            ...item, 
+            targetUrl: override,
+            deepLinkUrl: override.startsWith('http') ? `fb://facewebmodal/f?href=${encodeURIComponent(override)}` : override 
+          }
+        : item;
+
+      if (targetItem.category === 'specific') {
+        specific.push(targetItem);
+      } else if (targetItem.category === 'my_post') {
+        my_post.push(targetItem);
+      } else if (targetItem.category === 'group') {
+        group.push(targetItem);
       }
     });
 
@@ -400,6 +411,15 @@ export default function App() {
       {/* CORE CONTENT */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
+        {/* Edit Link Modal */}
+        {editingItem && (
+          <EditLinkModal
+            item={editingItem}
+            onClose={() => setEditingItem(null)}
+            onSave={handleSaveOverride}
+          />
+        )}
+
         {/* Settings Panel Inline Overlay */}
         {showSettings && (
           <div className="mb-2 animate-fade-in">
@@ -559,12 +579,6 @@ export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   Filter Links by Name
                 </label>
-                <button
-                  onClick={handleResetCurrentTabProgress}
-                  className="px-3 py-1.5 bg-white/50 hover:bg-white/90 active:scale-95 border border-slate-200 text-[10px] font-bold text-slate-600 rounded-lg transition-all shadow-3xs"
-                >
-                  Reset Tab Marks
-                </button>
               </div>
               <div className="relative">
                 <input
@@ -675,6 +689,7 @@ export default function App() {
                         item={item}
                         isCompleted={completedIds.has(item.id)}
                         onToggleComplete={handleToggleComplete}
+                        onEdit={handleEdit}
                         deepLinkMode={deepLinkMode}
                       />
                     ))
@@ -717,6 +732,7 @@ export default function App() {
                         item={item}
                         isCompleted={completedIds.has(item.id)}
                         onToggleComplete={handleToggleComplete}
+                        onEdit={handleEdit}
                         deepLinkMode={deepLinkMode}
                       />
                     ))
@@ -759,6 +775,7 @@ export default function App() {
                         item={item}
                         isCompleted={completedIds.has(item.id)}
                         onToggleComplete={handleToggleComplete}
+                        onEdit={handleEdit}
                         deepLinkMode={deepLinkMode}
                       />
                     ))
@@ -781,18 +798,11 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className="mt-auto bg-slate-900 border-t border-slate-800 py-6 text-center text-slate-500 text-xs">
-        <div className="max-w-7xl mx-auto px-4 space-y-2">
-          <p className="font-medium text-slate-400">
-            Facebook Group & Post Manager — Crafted for Personal Use
-          </p>
+      <footer className="mt-auto bg-slate-900 border-t border-slate-800 py-4 text-center text-slate-500 text-[10px]">
+        <div className="max-w-7xl mx-auto px-4">
           <p className="text-slate-500">
-            Direct public Google sheet connection &middot; Private localStorage database (no trackers, no cookies)
+            Facebook Group & Post Manager &middot; Privacy Focused &middot; Malaysia Reset Synced
           </p>
-          <div className="flex justify-center items-center gap-2 mt-2">
-            <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-[10px] text-slate-400">Malaysia Reset Service Synced</span>
-          </div>
         </div>
       </footer>
     </div>
