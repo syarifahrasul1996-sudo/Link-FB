@@ -148,7 +148,7 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
     if (isUrlValid(groupPostLink)) {
       items.push(createItem('my_post', groupPostLink, 'mypost'));
     }
-    if (isUrlValid(groupLink)) {
+    if (isUrlValid(groupLink) && !isUrlValid(specificPostLink)) {
       items.push(createItem('group', groupLink, 'group'));
     }
     
