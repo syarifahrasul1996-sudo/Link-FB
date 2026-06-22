@@ -32,3 +32,19 @@ export interface AppSettings {
   sheetUrl: string;
   tabs: TabConfig[];
 }
+
+export interface DiagnosticInfo {
+  tabId: string;
+  tabName: string;
+  url: string;
+  status: 'idle' | 'loading' | 'success' | 'error';
+  statusCode?: number;
+  statusText?: string;
+  contentType?: string;
+  rawText?: string;
+  parsingError?: string;
+  isHtmlDetected: boolean;
+  rowsCount?: number;
+  itemsCount?: number;
+  fetchedAt?: string;
+}
