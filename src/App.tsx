@@ -1,12 +1,15 @@
 // App.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { TabConfig, FacebookItem, AccountProgress } from './types';
+import { TabConfig, FacebookItem, AccountProgress, DiagnosticInfo } from './types';
 import { DEFAULT_SHEET_URL, DEFAULT_TABS, MOCK_DATA_BY_TAB } from './mockData';
 import { parseCSV, getGoogleSheetDownloadUrl, transformRowsToItems } from './utils/sheetParser';
 import { getMalaysiaDateString, getMsUntilMalaysiaMidnight, formatMillisecondsToCountdown } from './utils/timezone';
 import FBItemCard from './components/FBItemCard';
 import EditLinkModal from './components/EditLinkModal';
 import SettingsPanel from './components/SettingsPanel';
+// import DiagnosticPanel from './components/DiagnosticPanel';
+import CollapsibleSection from './components/CollapsibleSection';
+import { motion, AnimatePresence } from 'motion/react';
 
 import {
   Search,
@@ -87,6 +90,24 @@ export default function App() {
   // Cached spreadsheet parsed data
   const [liveTabItems, setLiveTabItems] = useState<Record<string, FacebookItem[]>>({});
   const [editingItem, setEditingItem] = useState<FacebookItem | null>(null);
+
+  // State for one-by-one deleted items
+  const [deletedItemIds, setDeletedItemIds] = useState<Set<string>>(() => {
+    const raw = localStorage.getItem('fb_link_manager_deleted_ids');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  });
+
+  const handleDeleteItem = (id: string) => {
+    const nextDeleted = new Set(deletedItemIds);
+    nextDeleted.add(id);
+    setDeletedItemIds(nextDeleted);
+    localStorage.setItem('fb_link_manager_deleted_ids', JSON.stringify(Array.from(nextDeleted)));
+  };
+
+  const handleRestoreDeleted = () => {
+    setDeletedItemIds(new Set());
+    localStorage.removeItem('fb_link_manager_deleted_ids');
+  };
   
   const [urlOverrides, setUrlOverrides] = useState<Record<string, string>>(() => {
     const raw = localStorage.getItem('fb_link_manager_url_overrides');
@@ -102,6 +123,24 @@ export default function App() {
     setUrlOverrides(nextOverrides);
     localStorage.setItem('fb_link_manager_url_overrides', JSON.stringify(nextOverrides));
     setEditingItem(null);
+  };
+
+  // Helper to chunk lists of items into groups of 25
+  const getSectionChunks = (items: FacebookItem[], categoryKey: string) => {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += 25) {
+      const chunkItems = items.slice(i, i + 25);
+      const sectionIndex = Math.floor(i / 25) + 1;
+      const key = `${categoryKey}_sec_${sectionIndex}`;
+      chunks.push({
+        key,
+        sectionIndex,
+        items: chunkItems,
+        startIndex: i + 1,
+        endIndex: Math.min(i + 25, items.length),
+      });
+    }
+    return chunks;
   };
 
   // Mobile column active tab state
@@ -174,26 +213,47 @@ export default function App() {
   const fetchGoogleSheetData = async (targetTabs = tabs, targetUrl = sheetUrl) => {
     setLoading(true);
     setErrorMsg(null);
+    
     try {
       const newTabItemsMap: Record<string, FacebookItem[]> = {};
 
       // Fetch all three tabs concurrently to render complete stats and switch tab smoothly
       await Promise.all(
         targetTabs.map(async (tab) => {
+          const downloadUrl = getGoogleSheetDownloadUrl(targetUrl, tab.gid);
+
           try {
-            const downloadUrl = getGoogleSheetDownloadUrl(targetUrl, tab.gid);
             const response = await fetch(downloadUrl);
             
             if (!response.ok) {
-              console.warn(`Google Sheets servers responded with error (${response.status}) on Tab "${tab.name}".`);
+              const errorText = `Google Sheets servers responded with error (${response.status}: ${response.statusText || 'Bad Request'}).`;
+              console.warn(`${errorText} on Tab "${tab.name}".`);
+              
               newTabItemsMap[tab.id] = [];
               return;
             }
             
             const csvText = await response.text();
-            const rows = parseCSV(csvText);
-            const items = transformRowsToItems(rows, tab.id);
-            newTabItemsMap[tab.id] = items;
+            
+            // Check for HTML characteristics
+            const lowerText = csvText.trim().toLowerCase();
+            const isHtml = lowerText.startsWith('<!doctype html') || 
+                           lowerText.includes('<html') || 
+                           lowerText.includes('<head') || 
+                           lowerText.includes('<body') || 
+                           lowerText.includes('google-site-verification') ||
+                           lowerText.includes('google accounts') ||
+                           lowerText.includes('login') ||
+                           lowerText.includes('signing in');
+            
+            if (isHtml) {
+              newTabItemsMap[tab.id] = [];
+            } else {
+              const rows = parseCSV(csvText);
+              
+              const items = transformRowsToItems(rows, tab.id);
+              newTabItemsMap[tab.id] = items;
+            }
           } catch (tabErr: any) {
             console.error(`Error loading Tab "${tab.name}":`, tabErr);
             newTabItemsMap[tab.id] = [];
@@ -253,8 +313,9 @@ export default function App() {
 
   // --- Get Items Computed based on source selection ---
   const rawItemsForActiveTab: FacebookItem[] = useMemo(() => {
-    return liveTabItems[selectedTabId] || [];
-  }, [liveTabItems, selectedTabId]);
+    const items = liveTabItems[selectedTabId] || [];
+    return items.filter(item => !deletedItemIds.has(item.id));
+  }, [liveTabItems, selectedTabId, deletedItemIds]);
 
   // --- Categorize, alphabetical sorting, and live searching ---
   const categorizedAndFilteredItems = useMemo(() => {
@@ -460,7 +521,6 @@ export default function App() {
                     {activeTabName}
                   </span>
                   <span className="block text-[11px] font-medium text-slate-500 mt-0.5">
-                    {(allTabsProgressInfo[selectedTabId]?.completed || 0)} / {(allTabsProgressInfo[selectedTabId]?.total || 0)} Links
                   </span>
                 </div>
               </div>
@@ -474,7 +534,6 @@ export default function App() {
               <div className="absolute left-0 right-0 mt-2 bg-white/95 backdrop-blur-lg border border-slate-200/90 rounded-2xl shadow-lg shadow-blue-500/5 py-1.5 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[290px] overflow-y-auto">
                 {tabs.map((tab) => {
                   const isSelected = tab.id === selectedTabId;
-                  const stats = allTabsProgressInfo[tab.id] || { total: 0, completed: 0, percentage: 0 };
                   
                   return (
                     <button
@@ -497,15 +556,7 @@ export default function App() {
                           {tab.name}
                         </span>
                         
-                        {/* Right side badge */}
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-md ${
-                            isSelected 
-                              ? 'bg-blue-600 text-white' 
-                              : 'bg-slate-100 text-slate-600 border border-slate-200/50'
-                          }`}>
-                            {stats.completed}/{stats.total}
-                          </span>
                           {isSelected && (
                             <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3] shrink-0" />
                           )}
@@ -564,6 +615,14 @@ export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   Search & Filter
                 </label>
+                {deletedItemIds.size > 0 && (
+                  <button
+                    onClick={handleRestoreDeleted}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
+                  >
+                    Restore {deletedItemIds.size} Deleted Link{deletedItemIds.size > 1 ? 's' : ''}
+                  </button>
+                )}
               </div>
               <div className="relative">
                 <input
@@ -666,35 +725,39 @@ export default function App() {
                   </span>
                 </div>
                 
-                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
-                  {categorizedAndFilteredItems.specific.length > 0 ? (
-                    categorizedAndFilteredItems.specific.map((item, index) => (
-                      <React.Fragment key={item.id}>
-                        <FBItemCard
-                          item={item}
-                          isCompleted={completedIds.has(item.id)}
+                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
+                  <AnimatePresence initial={false}>
+                    {categorizedAndFilteredItems.specific.length > 0 ? (
+                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific').map((chunk, index, arr) => (
+                        <CollapsibleSection
+                          key={chunk.key}
+                          sectionKey={chunk.key}
+                          sectionIndex={chunk.sectionIndex}
+                          items={chunk.items}
+                          startIndex={chunk.startIndex}
+                          endIndex={chunk.endIndex}
+                          completedIds={completedIds}
                           onToggleComplete={handleToggleComplete}
                           onEdit={handleEdit}
+                          onDelete={handleDeleteItem}
                           deepLinkMode={deepLinkMode}
+                          isLastSection={index === arr.length - 1}
                         />
-                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.specific.length - 1 && (
-                          <div className="py-3 flex items-center justify-center">
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                          </div>
-                        )}
-                      </React.Fragment>
-                    ))
-                  ) : (
-                    <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
-                      <Bookmark className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
-                      <span className="text-xs font-semibold text-slate-500">No Direct Post tasks</span>
-                      <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
-                        {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
-                      </p>
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12"
+                      >
+                        <Bookmark className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
+                        <span className="text-xs font-semibold text-slate-500">No Direct Post tasks</span>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
+                          {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
@@ -717,35 +780,39 @@ export default function App() {
                   </span>
                 </div>
                 
-                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
-                  {categorizedAndFilteredItems.my_post.length > 0 ? (
-                    categorizedAndFilteredItems.my_post.map((item, index) => (
-                       <React.Fragment key={item.id}>
-                         <FBItemCard
-                          item={item}
-                          isCompleted={completedIds.has(item.id)}
+                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
+                  <AnimatePresence initial={false}>
+                    {categorizedAndFilteredItems.my_post.length > 0 ? (
+                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post').map((chunk, index, arr) => (
+                        <CollapsibleSection
+                          key={chunk.key}
+                          sectionKey={chunk.key}
+                          sectionIndex={chunk.sectionIndex}
+                          items={chunk.items}
+                          startIndex={chunk.startIndex}
+                          endIndex={chunk.endIndex}
+                          completedIds={completedIds}
                           onToggleComplete={handleToggleComplete}
                           onEdit={handleEdit}
+                          onDelete={handleDeleteItem}
                           deepLinkMode={deepLinkMode}
+                          isLastSection={index === arr.length - 1}
                         />
-                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.my_post.length - 1 && (
-                          <div className="py-3 flex items-center justify-center">
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                          </div>
-                        )}
-                       </React.Fragment>
-                    ))
-                  ) : (
-                    <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
-                      <FileText className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
-                      <span className="text-xs font-semibold text-slate-500">No group posts found</span>
-                      <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
-                        {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
-                      </p>
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12"
+                      >
+                        <FileText className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
+                        <span className="text-xs font-semibold text-slate-500">No group posts found</span>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
+                          {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
@@ -768,35 +835,39 @@ export default function App() {
                   </span>
                 </div>
                 
-                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
-                  {categorizedAndFilteredItems.group.length > 0 ? (
-                    categorizedAndFilteredItems.group.map((item, index) => (
-                       <React.Fragment key={item.id}>
-                         <FBItemCard
-                          item={item}
-                          isCompleted={completedIds.has(item.id)}
+                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
+                  <AnimatePresence initial={false}>
+                    {categorizedAndFilteredItems.group.length > 0 ? (
+                      getSectionChunks(categorizedAndFilteredItems.group, 'group').map((chunk, index, arr) => (
+                        <CollapsibleSection
+                          key={chunk.key}
+                          sectionKey={chunk.key}
+                          sectionIndex={chunk.sectionIndex}
+                          items={chunk.items}
+                          startIndex={chunk.startIndex}
+                          endIndex={chunk.endIndex}
+                          completedIds={completedIds}
                           onToggleComplete={handleToggleComplete}
                           onEdit={handleEdit}
+                          onDelete={handleDeleteItem}
                           deepLinkMode={deepLinkMode}
+                          isLastSection={index === arr.length - 1}
                         />
-                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.group.length - 1 && (
-                          <div className="py-3 flex items-center justify-center">
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
-                            <div className="w-12 h-[1px] bg-slate-200/80" />
-                          </div>
-                        )}
-                       </React.Fragment>
-                    ))
-                  ) : (
-                    <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
-                      <Users className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
-                      <span className="text-xs font-semibold text-slate-500">No groups found</span>
-                      <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
-                        {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
-                      </p>
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12"
+                      >
+                        <Users className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
+                        <span className="text-xs font-semibold text-slate-500">No groups found</span>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
+                          {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
