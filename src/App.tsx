@@ -333,9 +333,9 @@ export default function App() {
     
     tabs.forEach(tab => {
       const items = liveTabItems[tab.id] || [];
-      const groupItems = items.filter(item => item.category === 'group');
-      const total = groupItems.length;
-      const completed = groupItems.filter(item => completedIds.has(item.id)).length;
+      const myPostItems = items.filter(item => item.category === 'my_post');
+      const total = myPostItems.length;
+      const completed = myPostItems.filter(item => completedIds.has(item.id)).length;
       const percentage = total > 0 ? (completed / total) * 100 : 0;
       
       rawMap[tab.id] = { total, completed, percentage };
