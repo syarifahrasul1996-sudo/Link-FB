@@ -668,15 +668,23 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
                   {categorizedAndFilteredItems.specific.length > 0 ? (
-                    categorizedAndFilteredItems.specific.map(item => (
-                      <FBItemCard
-                        key={item.id}
-                        item={item}
-                        isCompleted={completedIds.has(item.id)}
-                        onToggleComplete={handleToggleComplete}
-                        onEdit={handleEdit}
-                        deepLinkMode={deepLinkMode}
-                      />
+                    categorizedAndFilteredItems.specific.map((item, index) => (
+                      <React.Fragment key={item.id}>
+                        <FBItemCard
+                          item={item}
+                          isCompleted={completedIds.has(item.id)}
+                          onToggleComplete={handleToggleComplete}
+                          onEdit={handleEdit}
+                          deepLinkMode={deepLinkMode}
+                        />
+                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.specific.length - 1 && (
+                          <div className="py-3 flex items-center justify-center">
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                          </div>
+                        )}
+                      </React.Fragment>
                     ))
                   ) : (
                     <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
@@ -711,15 +719,23 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
                   {categorizedAndFilteredItems.my_post.length > 0 ? (
-                    categorizedAndFilteredItems.my_post.map(item => (
-                       <FBItemCard
-                        key={item.id}
-                        item={item}
-                        isCompleted={completedIds.has(item.id)}
-                        onToggleComplete={handleToggleComplete}
-                        onEdit={handleEdit}
-                        deepLinkMode={deepLinkMode}
-                      />
+                    categorizedAndFilteredItems.my_post.map((item, index) => (
+                       <React.Fragment key={item.id}>
+                         <FBItemCard
+                          item={item}
+                          isCompleted={completedIds.has(item.id)}
+                          onToggleComplete={handleToggleComplete}
+                          onEdit={handleEdit}
+                          deepLinkMode={deepLinkMode}
+                        />
+                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.my_post.length - 1 && (
+                          <div className="py-3 flex items-center justify-center">
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                          </div>
+                        )}
+                       </React.Fragment>
                     ))
                   ) : (
                     <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
@@ -754,15 +770,23 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px]">
                   {categorizedAndFilteredItems.group.length > 0 ? (
-                    categorizedAndFilteredItems.group.map(item => (
-                       <FBItemCard
-                        key={item.id}
-                        item={item}
-                        isCompleted={completedIds.has(item.id)}
-                        onToggleComplete={handleToggleComplete}
-                        onEdit={handleEdit}
-                        deepLinkMode={deepLinkMode}
-                      />
+                    categorizedAndFilteredItems.group.map((item, index) => (
+                       <React.Fragment key={item.id}>
+                         <FBItemCard
+                          item={item}
+                          isCompleted={completedIds.has(item.id)}
+                          onToggleComplete={handleToggleComplete}
+                          onEdit={handleEdit}
+                          deepLinkMode={deepLinkMode}
+                        />
+                        {(index + 1) % 25 === 0 && index !== categorizedAndFilteredItems.group.length - 1 && (
+                          <div className="py-3 flex items-center justify-center">
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                            <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
+                            <div className="w-12 h-[1px] bg-slate-200/80" />
+                          </div>
+                        )}
+                       </React.Fragment>
                     ))
                   ) : (
                     <div className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12">
