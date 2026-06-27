@@ -72,6 +72,11 @@ export default function App() {
     return raw ? new Set(JSON.parse(raw)) : new Set();
   });
 
+  const [everCompletedIds, setEverCompletedIds] = useState<Set<string>>(() => {
+    const raw = localStorage.getItem('fb_link_manager_ever_completed_ids');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  });
+
   const deepLinkMode = false;
 
   // --- UI/UX State variables ---
@@ -81,10 +86,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-
-  
-  // Real-time ticking time till Malaysia midnight reset
-  const [msUntilReset, setMsUntilReset] = useState(getMsUntilMalaysiaMidnight());
+  // Current Malaysia Date for display
   const [malaysiaDateStr, setMalaysiaDateStr] = useState(getMalaysiaDateString());
 
   // Cached spreadsheet parsed data
@@ -158,40 +160,35 @@ export default function App() {
     };
   }, [dropdownOpen]);
 
-  // --- Clock / Countdown and Automated Reset triggers ---
+  // --- Clock display timer and Automated Reset triggers ---
   useEffect(() => {
     const timer = setInterval(() => {
-      const remaining = getMsUntilMalaysiaMidnight();
-      setMsUntilReset(remaining);
+      const tdMalaysia = getMalaysiaDateString();
+      setMalaysiaDateStr(tdMalaysia);
       
-      const currentDateStr = getMalaysiaDateString();
-      setMalaysiaDateStr(currentDateStr);
+      // Check for midnight rollover to reset checkmarks
+      const storedResetDate = localStorage.getItem('fb_link_manager_last_reset_date');
+      if (storedResetDate && storedResetDate !== tdMalaysia) {
+        // Midnight Malaysia Time hit! Reset completed items (checkmarks).
+        // BUT we keep everCompletedIds so they stay at the bottom.
+        setCompletedIds(new Set());
+        localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
+        localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
+      } else if (!storedResetDate) {
+        localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
 
-  // Check if dates rolled over on Malaysia time to reset completed ids
-  useEffect(() => {
-    const storedResetDate = localStorage.getItem('fb_link_manager_last_reset_date');
-    const tdMalaysia = getMalaysiaDateString();
-    
-    if (storedResetDate !== tdMalaysia) {
-      // Midnight Malaysia Time hit! Reset completed items.
-      setCompletedIds(new Set());
-      localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
-      localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
-      
-      // Notify only if it wasn't the first setup
-      if (storedResetDate) {
-        alert("✨ Midnight in Malaysia! Daily group completion progress has been reset.");
-      }
-    }
-  }, [malaysiaDateStr]);
-
   // --- Save / Fetch Handlers ---
   const saveCompletedIdsToStorage = (updatedSet: Set<string>) => {
     localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify(Array.from(updatedSet)));
+  };
+
+  const saveEverCompletedIdsToStorage = (updatedSet: Set<string>) => {
+    localStorage.setItem('fb_link_manager_ever_completed_ids', JSON.stringify(Array.from(updatedSet)));
   };
 
   // Persist direct preferences and selections
@@ -302,13 +299,21 @@ export default function App() {
   // --- Complete Status toggling ---
   const handleToggleComplete = (id: string) => {
     const updated = new Set<string>(completedIds);
+    const updatedEver = new Set<string>(everCompletedIds);
+    
     if (updated.has(id)) {
       updated.delete(id);
     } else {
       updated.add(id);
+      // Once it's clicked, it stays in the "Ever Done" group forever (at the bottom)
+      updatedEver.add(id);
     }
+    
     setCompletedIds(updated);
+    setEverCompletedIds(updatedEver);
+    
     saveCompletedIdsToStorage(updated);
+    saveEverCompletedIdsToStorage(updatedEver);
   };
 
   // --- Get Items Computed based on source selection ---
@@ -348,15 +353,34 @@ export default function App() {
       }
     });
 
-    // Sort alphabetically by Column A Label
-    const alphaSort = (a: FacebookItem, b: FacebookItem) => a.label.localeCompare(b.label);
+    // Sort: Uncompleted/Never Done first (alphabetical), then Ever Done (alphabetical)
+    const combinedSort = (a: FacebookItem, b: FacebookItem) => {
+      // Grouping: Never Done (Group 0), Ever Done (Group 1)
+      const aEver = everCompletedIds.has(a.id);
+      const bEver = everCompletedIds.has(b.id);
+      
+      if (aEver !== bEver) {
+        return aEver ? 1 : -1; // Ever Done goes to bottom
+      }
+      
+      // Secondary Sort: Currently Checked Today should go to the very bottom within the "Ever Done" group
+      // This ensures that "latest position" means they stay bottom-ish, but new completions move below old ones?
+      // Actually, user said "sorted alphabetically right?". Let's keep it simple within groups first.
+      const aDone = completedIds.has(a.id);
+      const bDone = completedIds.has(b.id);
+      if (aDone !== bDone) {
+        return aDone ? 1 : -1;
+      }
+      
+      return a.label.localeCompare(b.label); // Alphabetical within subgroups
+    };
     
-    specific.sort(alphaSort);
-    my_post.sort(alphaSort);
-    group.sort(alphaSort);
+    specific.sort(combinedSort);
+    my_post.sort(combinedSort);
+    group.sort(combinedSort);
 
     return { specific, my_post, group };
-  }, [rawItemsForActiveTab, searchQuery]);
+  }, [rawItemsForActiveTab, searchQuery, completedIds, everCompletedIds, urlOverrides]);
 
   // --- Progress Indicators (per account tab level) ---
   const activeTabProgressObject: AccountProgress = useMemo(() => {
@@ -434,10 +458,10 @@ export default function App() {
               <h1 className="font-sans font-extrabold text-lg text-slate-800 tracking-tight flex items-center gap-2">
                 Link Companion
                 <span className="hidden sm:inline-flex bg-blue-50 border border-blue-200/60 text-blue-700 text-[10px] tracking-wide font-extrabold px-2 py-0.5 rounded-md">
-                  Daily Flow
+                  Task Flow
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 font-medium">Your simple daily link and group story tracker</p>
+              <p className="text-xs text-slate-500 font-medium">Your simple link and group story tracker</p>
             </div>
           </div>
 
@@ -452,10 +476,10 @@ export default function App() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 bg-white/40 backdrop-blur-xs border border-white/55 px-3 py-1.5 rounded-lg text-xs" title="Daily progress resets at Kuala Lumpur midnight">
-              <Clock className="w-4 h-4 text-blue-600 shrink-0 animate-pulse" />
+            <div className="flex items-center gap-2 bg-white/40 backdrop-blur-xs border border-white/55 px-3 py-1.5 rounded-lg text-xs">
+              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
               <div className="font-medium text-slate-600">
-                Reset in <span className="font-bold font-mono text-blue-700">{formatMillisecondsToCountdown(msUntilReset)}</span>
+                Malaysia: <span className="font-bold font-mono text-blue-700">{malaysiaDateStr}</span>
               </div>
             </div>
 
