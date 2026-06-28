@@ -128,20 +128,35 @@ export default function App() {
   };
 
   // Helper to chunk lists of items into groups of 25
-  const getSectionChunks = (items: FacebookItem[], categoryKey: string) => {
+  const getSectionChunks = (items: FacebookItem[], categoryKey: string, everCompletedIds: Set<string>) => {
     const chunks = [];
     for (let i = 0; i < items.length; i += 25) {
       const chunkItems = items.slice(i, i + 25);
       const sectionIndex = Math.floor(i / 25) + 1;
       const key = `${categoryKey}_sec_${sectionIndex}`;
+      
+      // A chunk is considered fully completed if ALL its items are in everCompletedIds
+      const isFullyCompleted = chunkItems.every(item => everCompletedIds.has(item.id));
+      
       chunks.push({
         key,
         sectionIndex,
         items: chunkItems,
         startIndex: i + 1,
         endIndex: Math.min(i + 25, items.length),
+        isFullyCompleted
       });
     }
+
+    // Sort chunks: uncompleted first, fully completed last. 
+    // Otherwise maintain their original section order.
+    chunks.sort((a, b) => {
+      if (a.isFullyCompleted !== b.isFullyCompleted) {
+        return a.isFullyCompleted ? 1 : -1;
+      }
+      return a.sectionIndex - b.sectionIndex;
+    });
+
     return chunks;
   };
 
@@ -353,34 +368,17 @@ export default function App() {
       }
     });
 
-    // Sort: Uncompleted/Never Done first (alphabetical), then Ever Done (alphabetical)
-    const combinedSort = (a: FacebookItem, b: FacebookItem) => {
-      // Grouping: Never Done (Group 0), Ever Done (Group 1)
-      const aEver = everCompletedIds.has(a.id);
-      const bEver = everCompletedIds.has(b.id);
-      
-      if (aEver !== bEver) {
-        return aEver ? 1 : -1; // Ever Done goes to bottom
-      }
-      
-      // Secondary Sort: Currently Checked Today should go to the very bottom within the "Ever Done" group
-      // This ensures that "latest position" means they stay bottom-ish, but new completions move below old ones?
-      // Actually, user said "sorted alphabetically right?". Let's keep it simple within groups first.
-      const aDone = completedIds.has(a.id);
-      const bDone = completedIds.has(b.id);
-      if (aDone !== bDone) {
-        return aDone ? 1 : -1;
-      }
-      
-      return a.label.localeCompare(b.label); // Alphabetical within subgroups
+    // Sort alphabetically so items stay in their designated chunks
+    const alphaSort = (a: FacebookItem, b: FacebookItem) => {
+      return a.label.localeCompare(b.label); 
     };
     
-    specific.sort(combinedSort);
-    my_post.sort(combinedSort);
-    group.sort(combinedSort);
+    specific.sort(alphaSort);
+    my_post.sort(alphaSort);
+    group.sort(alphaSort);
 
     return { specific, my_post, group };
-  }, [rawItemsForActiveTab, searchQuery, completedIds, everCompletedIds, urlOverrides]);
+  }, [rawItemsForActiveTab, searchQuery, urlOverrides]);
 
   // --- Progress Indicators (per account tab level) ---
   const activeTabProgressObject: AccountProgress = useMemo(() => {
@@ -752,7 +750,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.specific.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific').map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific', everCompletedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -807,7 +805,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.my_post.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post').map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post', everCompletedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -862,7 +860,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.group.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.group, 'group').map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.group, 'group', everCompletedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
