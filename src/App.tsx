@@ -77,6 +77,11 @@ export default function App() {
     return raw ? new Set(JSON.parse(raw)) : new Set();
   });
 
+  const [completedSectionsOrder, setCompletedSectionsOrder] = useState<string[]>(() => {
+    const raw = localStorage.getItem('fb_link_manager_completed_sections_order');
+    return raw ? JSON.parse(raw) : [];
+  });
+
   const deepLinkMode = false;
 
   // --- UI/UX State variables ---
@@ -148,12 +153,22 @@ export default function App() {
       });
     }
 
-    // Sort chunks: uncompleted first, fully completed last. 
-    // Otherwise maintain their original section order.
+    // Sort chunks:
+    // 1. Chunks NOT in completedSectionsOrder go to the top, ordered by sectionIndex.
+    // 2. Chunks IN completedSectionsOrder go to the bottom, ordered by their position in that list.
     chunks.sort((a, b) => {
-      if (a.isFullyCompleted !== b.isFullyCompleted) {
-        return a.isFullyCompleted ? 1 : -1;
+      const aOrderIndex = completedSectionsOrder.indexOf(a.key);
+      const bOrderIndex = completedSectionsOrder.indexOf(b.key);
+      
+      const aInOrder = aOrderIndex !== -1;
+      const bInOrder = bOrderIndex !== -1;
+
+      if (aInOrder && bInOrder) {
+        return aOrderIndex - bOrderIndex;
       }
+      if (aInOrder) return 1;
+      if (bInOrder) return -1;
+      
       return a.sectionIndex - b.sectionIndex;
     });
 
@@ -204,6 +219,10 @@ export default function App() {
 
   const saveEverCompletedIdsToStorage = (updatedSet: Set<string>) => {
     localStorage.setItem('fb_link_manager_ever_completed_ids', JSON.stringify(Array.from(updatedSet)));
+  };
+
+  const saveCompletedSectionsOrderToStorage = (updatedOrder: string[]) => {
+    localStorage.setItem('fb_link_manager_completed_sections_order', JSON.stringify(updatedOrder));
   };
 
   // Persist direct preferences and selections
@@ -316,6 +335,10 @@ export default function App() {
     const updated = new Set<string>(completedIds);
     const updatedEver = new Set<string>(everCompletedIds);
     
+    const items = liveTabItems[selectedTabId] || [];
+    const itemToToggle = items.find(item => item.id === id);
+    const wasEverCompleted = updatedEver.has(id);
+
     if (updated.has(id)) {
       updated.delete(id);
     } else {
@@ -329,6 +352,35 @@ export default function App() {
     
     saveCompletedIdsToStorage(updated);
     saveEverCompletedIdsToStorage(updatedEver);
+
+    // If we just completed an item for the first time, check if its section is now fully completed
+    if (!wasEverCompleted && itemToToggle) {
+      const categoryKey = itemToToggle.category;
+      const categoryItems = items
+        .filter(it => it.category === categoryKey)
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+      const itemIndex = categoryItems.findIndex(it => it.id === id);
+      if (itemIndex !== -1) {
+        const sectionIndex = Math.floor(itemIndex / 25) + 1;
+        const sectionKey = `${categoryKey}_sec_${sectionIndex}`;
+        
+        // Only proceed if this section isn't already in the order list
+        if (!completedSectionsOrder.includes(sectionKey)) {
+          const sectionStart = Math.floor(itemIndex / 25) * 25;
+          const sectionItems = categoryItems.slice(sectionStart, sectionStart + 25);
+          
+          // Check if all items in this section are now in updatedEver
+          const isFullyCompleted = sectionItems.every(it => updatedEver.has(it.id));
+          
+          if (isFullyCompleted) {
+            const newOrder = [...completedSectionsOrder, sectionKey];
+            setCompletedSectionsOrder(newOrder);
+            saveCompletedSectionsOrderToStorage(newOrder);
+          }
+        }
+      }
+    }
   };
 
   // --- Get Items Computed based on source selection ---
