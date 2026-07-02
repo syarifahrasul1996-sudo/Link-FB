@@ -72,11 +72,6 @@ export default function App() {
     return raw ? new Set(JSON.parse(raw)) : new Set();
   });
 
-  const [everCompletedIds, setEverCompletedIds] = useState<Set<string>>(() => {
-    const raw = localStorage.getItem('fb_link_manager_ever_completed_ids');
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  });
-
   const [completedSectionsOrder, setCompletedSectionsOrder] = useState<string[]>(() => {
     const raw = localStorage.getItem('fb_link_manager_completed_sections_order');
     return raw ? JSON.parse(raw) : [];
@@ -133,15 +128,15 @@ export default function App() {
   };
 
   // Helper to chunk lists of items into groups of 25
-  const getSectionChunks = (items: FacebookItem[], categoryKey: string, everCompletedIds: Set<string>) => {
+  const getSectionChunks = (items: FacebookItem[], categoryKey: string, completedIds: Set<string>) => {
     const chunks = [];
     for (let i = 0; i < items.length; i += 25) {
       const chunkItems = items.slice(i, i + 25);
       const sectionIndex = Math.floor(i / 25) + 1;
       const key = `${categoryKey}_sec_${sectionIndex}`;
       
-      // A chunk is considered fully completed if ALL its items are in everCompletedIds
-      const isFullyCompleted = chunkItems.every(item => everCompletedIds.has(item.id));
+      // A chunk is considered fully completed if ALL its items are in completedIds
+      const isFullyCompleted = chunkItems.length > 0 && chunkItems.every(item => completedIds.has(item.id));
       
       chunks.push({
         key,
@@ -215,10 +210,6 @@ export default function App() {
   // --- Save / Fetch Handlers ---
   const saveCompletedIdsToStorage = (updatedSet: Set<string>) => {
     localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify(Array.from(updatedSet)));
-  };
-
-  const saveEverCompletedIdsToStorage = (updatedSet: Set<string>) => {
-    localStorage.setItem('fb_link_manager_ever_completed_ids', JSON.stringify(Array.from(updatedSet)));
   };
 
   const saveCompletedSectionsOrderToStorage = (updatedOrder: string[]) => {
@@ -333,28 +324,21 @@ export default function App() {
   // --- Complete Status toggling ---
   const handleToggleComplete = (id: string) => {
     const updated = new Set<string>(completedIds);
-    const updatedEver = new Set<string>(everCompletedIds);
     
     const items = liveTabItems[selectedTabId] || [];
     const itemToToggle = items.find(item => item.id === id);
-    const wasEverCompleted = updatedEver.has(id);
 
     if (updated.has(id)) {
       updated.delete(id);
     } else {
       updated.add(id);
-      // Once it's clicked, it stays in the "Ever Done" group forever (at the bottom)
-      updatedEver.add(id);
     }
     
     setCompletedIds(updated);
-    setEverCompletedIds(updatedEver);
-    
     saveCompletedIdsToStorage(updated);
-    saveEverCompletedIdsToStorage(updatedEver);
 
-    // If we just completed an item for the first time, check if its section is now fully completed
-    if (!wasEverCompleted && itemToToggle) {
+    // If we just toggled an item, check if its section is now fully completed today
+    if (itemToToggle) {
       const categoryKey = itemToToggle.category;
       const categoryItems = items
         .filter(it => it.category === categoryKey)
@@ -365,19 +349,19 @@ export default function App() {
         const sectionIndex = Math.floor(itemIndex / 25) + 1;
         const sectionKey = `${categoryKey}_sec_${sectionIndex}`;
         
-        // Only proceed if this section isn't already in the order list
-        if (!completedSectionsOrder.includes(sectionKey)) {
-          const sectionStart = Math.floor(itemIndex / 25) * 25;
-          const sectionItems = categoryItems.slice(sectionStart, sectionStart + 25);
-          
-          // Check if all items in this section are now in updatedEver
-          const isFullyCompleted = sectionItems.every(it => updatedEver.has(it.id));
-          
-          if (isFullyCompleted) {
-            const newOrder = [...completedSectionsOrder, sectionKey];
-            setCompletedSectionsOrder(newOrder);
-            saveCompletedSectionsOrderToStorage(newOrder);
-          }
+        const sectionStart = Math.floor(itemIndex / 25) * 25;
+        const sectionItems = categoryItems.slice(sectionStart, sectionStart + 25);
+        
+        // Check if all items in this section are now completed today
+        const isFullyCompletedToday = sectionItems.length > 0 && sectionItems.every(it => updated.has(it.id));
+        
+        if (isFullyCompletedToday) {
+          // It's fully completed! Move it to the bottom of the order list.
+          // We filter out any previous occurrence and append it to the end.
+          const filteredOrder = completedSectionsOrder.filter(k => k !== sectionKey);
+          const newOrder = [...filteredOrder, sectionKey];
+          setCompletedSectionsOrder(newOrder);
+          saveCompletedSectionsOrderToStorage(newOrder);
         }
       }
     }
@@ -802,7 +786,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.specific.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific', everCompletedIds).map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -857,7 +841,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.my_post.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post', everCompletedIds).map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -912,7 +896,7 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
                     {categorizedAndFilteredItems.group.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.group, 'group', everCompletedIds).map((chunk, index, arr) => (
+                      getSectionChunks(categorizedAndFilteredItems.group, 'group', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
