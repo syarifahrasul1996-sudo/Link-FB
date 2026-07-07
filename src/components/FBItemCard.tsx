@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { FacebookItem } from '../types';
 import { ExternalLink, Check, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { getSafeUrlForRender } from '../utils/urlValidator';
 
 interface FBItemCardProps {
   key?: string | number;
@@ -54,6 +55,8 @@ export default function FBItemCard({
     }
   };
 
+  const safeLink = getSafeUrlForRender(finalLink);
+
   return (
     <div 
       ref={constraintsRef} 
@@ -101,28 +104,43 @@ export default function FBItemCard({
           </button>
 
           {/* Brand label */}
-          <a
-            href={finalLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleLinkClick();
-            }}
-            className="flex-1 min-w-0 flex flex-col leading-tight cursor-pointer hover:underline"
-            title="Open link"
-          >
-            <span
-              className={`text-[11.5px] font-medium leading-normal line-clamp-1 truncate ${
-                isCompleted ? 'text-slate-400 line-through' : 'text-slate-700'
-              }`}
+          {!item.isLabelOnly ? (
+            <a
+              href={safeLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLinkClick();
+              }}
+              className="flex-1 min-w-0 flex flex-col leading-tight cursor-pointer hover:underline"
+              title="Open link"
             >
-              {item.label}
-            </span>
-            <span className="text-[9.5px] text-slate-400 truncate max-w-[95%]">
-              {finalLink}
-            </span>
-          </a>
+              <span
+                className={`text-[11.5px] font-medium leading-normal line-clamp-1 truncate ${
+                  isCompleted ? 'text-slate-400 line-through' : 'text-slate-700'
+                }`}
+              >
+                {item.label}
+              </span>
+              <span className="text-[9.5px] text-slate-400 truncate max-w-[95%]">
+                {finalLink}
+              </span>
+            </a>
+          ) : (
+            <div className="flex-1 min-w-0 flex flex-col leading-tight select-none">
+              <span
+                className={`text-[11.5px] font-medium leading-normal line-clamp-1 truncate ${
+                  isCompleted ? 'text-slate-400 line-through' : 'text-slate-500'
+                }`}
+              >
+                {item.label}
+              </span>
+              <span className="text-[9.5px] text-amber-600/90 font-medium flex items-center gap-1 mt-0.5">
+                Missing URL
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1 shrink-0 pl-1 pointer-events-auto">
@@ -136,19 +154,28 @@ export default function FBItemCard({
           </button>
 
           {/* Link indicator */}
-          <a
-            href={finalLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleLinkClick();
-            }}
-            className="p-1 rounded bg-slate-50 text-slate-450 hover:text-slate-600 transition-all cursor-pointer"
-            title="Open link"
-          >
-            <ExternalLink className="w-2.5 h-2.5" />
-          </a>
+          {!item.isLabelOnly ? (
+            <a
+              href={safeLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLinkClick();
+              }}
+              className="p-1 rounded bg-slate-50 text-slate-450 hover:text-slate-600 transition-all cursor-pointer"
+              title="Open link"
+            >
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          ) : (
+            <span 
+              className="p-1 rounded bg-slate-100 text-slate-300 cursor-not-allowed"
+              title="No link available"
+            >
+              <ExternalLink className="w-2.5 h-2.5 opacity-40" />
+            </span>
+          )}
         </div>
       </motion.div>
     </div>

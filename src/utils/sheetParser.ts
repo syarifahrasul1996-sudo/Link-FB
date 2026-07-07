@@ -123,7 +123,12 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
     }
 
     // Helper to create an item
-    const createItem = (category: 'specific' | 'my_post' | 'group', url: string, suffix: string): FacebookItem => {
+    const createItem = (
+      category: 'specific' | 'my_post' | 'group', 
+      url: string, 
+      suffix: string,
+      isLabelOnly = false
+    ): FacebookItem => {
       const targetUrl = url.trim();
       const deepLinkUrl = targetUrl.startsWith('http') 
         ? `fb://facewebmodal/f?href=${encodeURIComponent(targetUrl)}`
@@ -137,24 +142,21 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
         specificPostLink: specificPostLink.trim(),
         category,
         targetUrl,
-        deepLinkUrl
+        deepLinkUrl,
+        isLabelOnly
       };
     };
     
-    // Create items for each valid link found
+    // Create at most one item per row based on priority
     if (isUrlValid(specificPostLink)) {
       items.push(createItem('specific', specificPostLink, 'specific'));
-    }
-    if (isUrlValid(groupPostLink)) {
+    } else if (isUrlValid(groupPostLink)) {
       items.push(createItem('my_post', groupPostLink, 'mypost'));
-    }
-    if (isUrlValid(groupLink) && !isUrlValid(specificPostLink)) {
+    } else if (isUrlValid(groupLink)) {
       items.push(createItem('group', groupLink, 'group'));
-    }
-    
-    // Fallback: If no links at all, still add to 'group' category with empty URL
-    if (!isUrlValid(specificPostLink) && !isUrlValid(groupPostLink) && !isUrlValid(groupLink)) {
-        items.push(createItem('group', groupLink, 'group'));
+    } else {
+      // Fallback: If no links at all, still add to 'group' category but mark as isLabelOnly = true with empty URL
+      items.push(createItem('group', '', 'group', true));
     }
   }
   
@@ -164,5 +166,27 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
 function isUrlValid(url: string | undefined): boolean {
   if (!url) return false;
   const pruned = url.trim();
-  return pruned.startsWith('http://') || pruned.startsWith('https://');
+  if (!pruned.startsWith('http://') && !pruned.startsWith('https://')) {
+    return false;
+  }
+  try {
+    const parsed = new URL(pruned);
+    const lowerProtocol = parsed.protocol.toLowerCase();
+    if (lowerProtocol !== 'http:' && lowerProtocol !== 'https:') {
+      return false;
+    }
+    const lowerUrl = pruned.toLowerCase();
+    if (
+      lowerUrl.includes('javascript:') || 
+      lowerUrl.includes('data:') || 
+      lowerUrl.includes('vbscript:') || 
+      lowerUrl.includes('mailto:') || 
+      lowerUrl.includes('file:')
+    ) {
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
 }

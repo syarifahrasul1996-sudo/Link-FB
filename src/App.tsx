@@ -1,5 +1,5 @@
 // App.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { TabConfig, FacebookItem, AccountProgress, DiagnosticInfo } from './types';
 import { DEFAULT_SHEET_URL, DEFAULT_TABS, MOCK_DATA_BY_TAB } from './mockData';
 import { parseCSV, getGoogleSheetDownloadUrl, transformRowsToItems } from './utils/sheetParser';
@@ -10,6 +10,7 @@ import SettingsPanel from './components/SettingsPanel';
 // import DiagnosticPanel from './components/DiagnosticPanel';
 import CollapsibleSection from './components/CollapsibleSection';
 import { motion, AnimatePresence } from 'motion/react';
+import { safeLoadFromStorage } from './utils/localStorageHelper';
 
 import {
   Search,
@@ -45,22 +46,27 @@ export default function App() {
   });
 
   const [tabs, setTabs] = useState<TabConfig[]>(() => {
-    const raw = localStorage.getItem('fb_link_manager_tabs');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        // Automatic migration from older placeholder configurations or if they have the old default GID
-        const hasOldGid = parsed.some((t: any) => t.gid === '1855620942' || t.gid === '0' || t.gid === '928475201');
-        if (hasOldGid) {
-          localStorage.setItem('fb_link_manager_tabs', JSON.stringify(DEFAULT_TABS));
-          return DEFAULT_TABS;
-        }
-        return parsed;
-      } catch (e) {
-        return DEFAULT_TABS;
-      }
+    const parsed = safeLoadFromStorage<TabConfig[]>(
+      'fb_link_manager_tabs',
+      DEFAULT_TABS,
+      (data) => 
+        Array.isArray(data) && 
+        data.every(
+          (t: any) => 
+            t && 
+            typeof t === 'object' && 
+            typeof t.id === 'string' && 
+            typeof t.name === 'string' && 
+            typeof t.gid === 'string'
+        )
+    );
+    // Automatic migration from older placeholder configurations or if they have the old default GID
+    const hasOldGid = parsed.some((t: any) => t.gid === '1855620942' || t.gid === '0' || t.gid === '928475201');
+    if (hasOldGid) {
+      localStorage.setItem('fb_link_manager_tabs', JSON.stringify(DEFAULT_TABS));
+      return DEFAULT_TABS;
     }
-    return DEFAULT_TABS;
+    return parsed;
   });
 
   const [selectedTabId, setSelectedTabId] = useState<string>(() => {
@@ -68,13 +74,31 @@ export default function App() {
   });
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
-    const raw = localStorage.getItem('fb_link_manager_completed_ids');
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const parsed = safeLoadFromStorage<string[]>(
+      'fb_link_manager_completed_ids',
+      [],
+      (data) => Array.isArray(data) && data.every((item: any) => typeof item === 'string')
+    );
+    return new Set(parsed);
   });
 
   const [completedSectionsOrder, setCompletedSectionsOrder] = useState<string[]>(() => {
-    const raw = localStorage.getItem('fb_link_manager_completed_sections_order');
-    return raw ? JSON.parse(raw) : [];
+    const parsed = safeLoadFromStorage<string[]>(
+      'fb_link_manager_completed_sections_order',
+      [],
+      (data) => Array.isArray(data) && data.every((item: any) => typeof item === 'string')
+    );
+    return parsed.map((key: string) => {
+      // Migrate old un-scoped keys (e.g., "specific_sec_1") to the default account (acc-1)
+      if (
+        key.startsWith('specific_sec_') ||
+        key.startsWith('my_post_sec_') ||
+        key.startsWith('group_sec_')
+      ) {
+        return `acc-1_${key}`;
+      }
+      return key;
+    });
   });
 
   const deepLinkMode = false;
@@ -84,6 +108,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [tabErrors, setTabErrors] = useState<Record<string, string>>({});
+  const [tabInfoMsgs, setTabInfoMsgs] = useState<Record<string, string>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Current Malaysia Date for display
@@ -93,10 +119,29 @@ export default function App() {
   const [liveTabItems, setLiveTabItems] = useState<Record<string, FacebookItem[]>>({});
   const [editingItem, setEditingItem] = useState<FacebookItem | null>(null);
 
+  // Refs to handle race conditions in async Google Sheet fetches
+  const lastRequestIdRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   // State for one-by-one deleted items
   const [deletedItemIds, setDeletedItemIds] = useState<Set<string>>(() => {
-    const raw = localStorage.getItem('fb_link_manager_deleted_ids');
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const parsed = safeLoadFromStorage<string[]>(
+      'fb_link_manager_deleted_ids',
+      [],
+      (data) => Array.isArray(data) && data.every((item: any) => typeof item === 'string')
+    );
+    return new Set(parsed);
   });
 
   const handleDeleteItem = (id: string) => {
@@ -112,8 +157,15 @@ export default function App() {
   };
   
   const [urlOverrides, setUrlOverrides] = useState<Record<string, string>>(() => {
-    const raw = localStorage.getItem('fb_link_manager_url_overrides');
-    return raw ? JSON.parse(raw) : {};
+    return safeLoadFromStorage<Record<string, string>>(
+      'fb_link_manager_url_overrides',
+      {},
+      (data) => 
+        data !== null && 
+        typeof data === 'object' && 
+        !Array.isArray(data) && 
+        Object.values(data).every((val: any) => typeof val === 'string')
+    );
   });
 
   const handleEdit = (item: FacebookItem) => {
@@ -133,7 +185,7 @@ export default function App() {
     for (let i = 0; i < items.length; i += 25) {
       const chunkItems = items.slice(i, i + 25);
       const sectionIndex = Math.floor(i / 25) + 1;
-      const key = `${categoryKey}_sec_${sectionIndex}`;
+      const key = `${selectedTabId}_${categoryKey}_sec_${sectionIndex}`;
       
       // A chunk is considered fully completed if ALL its items are in completedIds
       const isFullyCompleted = chunkItems.length > 0 && chunkItems.every(item => completedIds.has(item.id));
@@ -155,8 +207,9 @@ export default function App() {
       const aOrderIndex = completedSectionsOrder.indexOf(a.key);
       const bOrderIndex = completedSectionsOrder.indexOf(b.key);
       
-      const aInOrder = aOrderIndex !== -1;
-      const bInOrder = bOrderIndex !== -1;
+      // A chunk is treated as sorted-to-bottom completed only if it is actually fully completed right now
+      const aInOrder = a.isFullyCompleted && aOrderIndex !== -1;
+      const bInOrder = b.isFullyCompleted && bOrderIndex !== -1;
 
       if (aInOrder && bInOrder) {
         return aOrderIndex - bOrderIndex;
@@ -195,9 +248,13 @@ export default function App() {
       const storedResetDate = localStorage.getItem('fb_link_manager_last_reset_date');
       if (storedResetDate && storedResetDate !== tdMalaysia) {
         // Midnight Malaysia Time hit! Reset completed items (checkmarks).
-        // BUT we keep everCompletedIds so they stay at the bottom.
         setCompletedIds(new Set());
         localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
+        
+        // Reset completed sections order so sections go back to their original positions
+        setCompletedSectionsOrder([]);
+        saveCompletedSectionsOrderToStorage([]);
+        
         localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
       } else if (!storedResetDate) {
         localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
@@ -233,31 +290,102 @@ export default function App() {
 
   // Download Google Sheet CSV for the currently active tabs
   const fetchGoogleSheetData = async (targetTabs = tabs, targetUrl = sheetUrl) => {
+    const requestId = ++lastRequestIdRef.current;
+    
+    // Invalidate/abort previous in-flight fetches
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
+
     setLoading(true);
     setErrorMsg(null);
+
+    // Clear errors and info messages for the target tabs
+    setTabErrors(prev => {
+      const next = { ...prev };
+      targetTabs.forEach(t => {
+        delete next[t.id];
+      });
+      return next;
+    });
+    setTabInfoMsgs(prev => {
+      const next = { ...prev };
+      targetTabs.forEach(t => {
+        delete next[t.id];
+      });
+      return next;
+    });
     
     try {
       const newTabItemsMap: Record<string, FacebookItem[]> = {};
 
-      // Fetch all three tabs concurrently to render complete stats and switch tab smoothly
+      // Fetch all target tabs concurrently to render complete stats and switch tab smoothly
       await Promise.all(
         targetTabs.map(async (tab) => {
-          const downloadUrl = getGoogleSheetDownloadUrl(targetUrl, tab.gid);
-
           try {
-            const response = await fetch(downloadUrl);
-            
-            if (!response.ok) {
-              const errorText = `Google Sheets servers responded with error (${response.status}: ${response.statusText || 'Bad Request'}).`;
-              console.warn(`${errorText} on Tab "${tab.name}".`);
-              
+            // 1. Validate sheet URL
+            if (!targetUrl.trim() || !targetUrl.includes('docs.google.com/spreadsheets')) {
+              if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+              setTabErrors(prev => ({ ...prev, [tab.id]: 'Invalid Google Sheet URL' }));
               newTabItemsMap[tab.id] = [];
               return;
             }
+
+            // 2. Validate GID
+            const trimmedGid = tab.gid?.trim() || '';
+            const isGidValid = trimmedGid === '' || /^\d+$/.test(trimmedGid);
+            if (!isGidValid) {
+              if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+              setTabErrors(prev => ({ ...prev, [tab.id]: 'Invalid or missing GID' }));
+              newTabItemsMap[tab.id] = [];
+              return;
+            }
+
+            const downloadUrl = getGoogleSheetDownloadUrl(targetUrl, tab.gid);
             
+            let response: Response;
+            try {
+              response = await fetch(downloadUrl, { signal });
+            } catch (fetchErr: any) {
+              if (fetchErr?.name === 'AbortError') {
+                return;
+              }
+              if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+              console.error(`Network error loading Tab "${tab.name}":`, fetchErr);
+              setTabErrors(prev => ({ ...prev, [tab.id]: 'Network error: Failed to connect to Google Sheets servers.' }));
+              newTabItemsMap[tab.id] = [];
+              return;
+            }
+
+            if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+
+            if (!response.ok) {
+              let msg = `Network error: Failed to load sheet (${response.status} ${response.statusText || 'Bad Request'}).`;
+              if (response.status === 404) {
+                msg = 'Google Sheet not found. Please verify the URL and ensure the spreadsheet exists.';
+              } else if (response.status === 400) {
+                msg = 'Invalid GID or sheet configuration. Please verify GID values in the configuration.';
+              } else if (response.status === 401 || response.status === 403) {
+                msg = 'Sheet is private or not publicly accessible. Ensure sharing settings are set to "Anyone with the link".';
+              }
+              setTabErrors(prev => ({ ...prev, [tab.id]: msg }));
+              newTabItemsMap[tab.id] = [];
+              return;
+            }
+
             const csvText = await response.text();
-            
-            // Check for HTML characteristics
+            if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+
+            if (!csvText || csvText.trim() === '') {
+              // Empty sheet
+              newTabItemsMap[tab.id] = [];
+              setTabInfoMsgs(prev => ({ ...prev, [tab.id]: 'This tab is empty. No rows found.' }));
+              return;
+            }
+
             const lowerText = csvText.trim().toLowerCase();
             const isHtml = lowerText.startsWith('<!doctype html') || 
                            lowerText.includes('<html') || 
@@ -267,37 +395,88 @@ export default function App() {
                            lowerText.includes('google accounts') ||
                            lowerText.includes('login') ||
                            lowerText.includes('signing in');
-            
+
             if (isHtml) {
+              setTabErrors(prev => ({ 
+                ...prev, 
+                [tab.id]: 'Sheet is private or not publicly accessible. Ensure sharing settings are set to "Anyone with the link".' 
+              }));
               newTabItemsMap[tab.id] = [];
-            } else {
-              const rows = parseCSV(csvText);
-              
-              const items = transformRowsToItems(rows, tab.id);
-              newTabItemsMap[tab.id] = items;
+              return;
             }
+
+            // Parse CSV
+            let rows: string[][];
+            try {
+              rows = parseCSV(csvText);
+            } catch (parseErr) {
+              if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+              setTabErrors(prev => ({ ...prev, [tab.id]: 'Unexpected response format: Failed to parse CSV data.' }));
+              newTabItemsMap[tab.id] = [];
+              return;
+            }
+
+            if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+
+            if (rows.length === 0) {
+              // Empty CSV / No valid data found
+              newTabItemsMap[tab.id] = [];
+              setTabInfoMsgs(prev => ({ ...prev, [tab.id]: 'This tab has no valid CSV data rows.' }));
+              return;
+            }
+
+            const items = transformRowsToItems(rows, tab.id);
+            newTabItemsMap[tab.id] = items;
+
+            if (items.length === 0) {
+              // Loaded successfully but no valid links found
+              setTabInfoMsgs(prev => ({ ...prev, [tab.id]: 'No valid links found on this tab.' }));
+            }
+
           } catch (tabErr: any) {
-            console.error(`Error loading Tab "${tab.name}":`, tabErr);
+            if (tabErr?.name === 'AbortError') return;
+            if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
+            console.error(`Unexpected error loading Tab "${tab.name}":`, tabErr);
+            setTabErrors(prev => ({ 
+              ...prev, 
+              [tab.id]: tabErr?.message || 'An unexpected error occurred while loading this tab.' 
+            }));
             newTabItemsMap[tab.id] = [];
           }
         })
       );
 
-      setLiveTabItems(newTabItemsMap);
+      if (lastRequestIdRef.current !== requestId || !isMountedRef.current) {
+        return;
+      }
+
+      setLiveTabItems(prev => ({
+        ...prev,
+        ...newTabItemsMap
+      }));
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      if (lastRequestIdRef.current !== requestId || !isMountedRef.current) return;
       console.error("Critical error inside fetchGoogleSheetData:", err);
       setErrorMsg(
         err?.message ||
         "Failed to load spreadsheet. Ensure Google Sheet shares are open to 'Anyone with link' and GID values are valid."
       );
     } finally {
-      setLoading(false);
+      if (lastRequestIdRef.current === requestId && isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   // Sync spreadsheet on load or configuration changes
   useEffect(() => {
     fetchGoogleSheetData();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [sheetUrl, tabs]);
 
   // --- Save settings handler ---
@@ -347,7 +526,7 @@ export default function App() {
       const itemIndex = categoryItems.findIndex(it => it.id === id);
       if (itemIndex !== -1) {
         const sectionIndex = Math.floor(itemIndex / 25) + 1;
-        const sectionKey = `${categoryKey}_sec_${sectionIndex}`;
+        const sectionKey = `${selectedTabId}_${categoryKey}_sec_${sectionIndex}`;
         
         const sectionStart = Math.floor(itemIndex / 25) * 25;
         const sectionItems = categoryItems.slice(sectionStart, sectionStart + 25);
@@ -358,10 +537,19 @@ export default function App() {
         if (isFullyCompletedToday) {
           // It's fully completed! Move it to the bottom of the order list.
           // We filter out any previous occurrence and append it to the end.
-          const filteredOrder = completedSectionsOrder.filter(k => k !== sectionKey);
-          const newOrder = [...filteredOrder, sectionKey];
-          setCompletedSectionsOrder(newOrder);
-          saveCompletedSectionsOrderToStorage(newOrder);
+          setCompletedSectionsOrder(prev => {
+            const filteredOrder = prev.filter(k => k !== sectionKey);
+            const newOrder = [...filteredOrder, sectionKey];
+            saveCompletedSectionsOrderToStorage(newOrder);
+            return newOrder;
+          });
+        } else {
+          // If any item in the section is unchecked (or not fully complete anymore), remove it from completedSectionsOrder
+          setCompletedSectionsOrder(prev => {
+            const newOrder = prev.filter(k => k !== sectionKey);
+            saveCompletedSectionsOrderToStorage(newOrder);
+            return newOrder;
+          });
         }
       }
     }
@@ -391,7 +579,8 @@ export default function App() {
         ? { 
             ...item, 
             targetUrl: override,
-            deepLinkUrl: override.startsWith('http') ? `fb://facewebmodal/f?href=${encodeURIComponent(override)}` : override 
+            deepLinkUrl: override.startsWith('http') ? `fb://facewebmodal/f?href=${encodeURIComponent(override)}` : override,
+            isLabelOnly: false
           }
         : item;
 
@@ -423,16 +612,15 @@ export default function App() {
     const groupTotal = activeItems.filter(item => item.category === 'group').length;
     const groupCompleted = activeItems.filter(item => item.category === 'group' && completedIds.has(item.id)).length;
 
-    const total = groupTotal;
-    const completed = groupCompleted;
-    const percentage = total > 0 ? (completed / total) * 100 : 0;
-
-    // Categorized statistics
     const specificTotal = activeItems.filter(item => item.category === 'specific').length;
     const specificCompleted = activeItems.filter(item => item.category === 'specific' && completedIds.has(item.id)).length;
 
     const myPostTotal = activeItems.filter(item => item.category === 'my_post').length;
     const myPostCompleted = activeItems.filter(item => item.category === 'my_post' && completedIds.has(item.id)).length;
+
+    const total = groupTotal + specificTotal + myPostTotal;
+    const completed = groupCompleted + specificCompleted + myPostCompleted;
+    const percentage = total > 0 ? (completed / total) * 100 : 0;
 
     return {
       total,
@@ -452,16 +640,26 @@ export default function App() {
     
     tabs.forEach(tab => {
       const items = liveTabItems[tab.id] || [];
-      const myPostItems = items.filter(item => item.category === 'my_post');
-      const total = myPostItems.length;
-      const completed = myPostItems.filter(item => completedIds.has(item.id)).length;
+      const activeItems = items.filter(item => !deletedItemIds.has(item.id));
+      
+      const groupTotal = activeItems.filter(item => item.category === 'group').length;
+      const groupCompleted = activeItems.filter(item => item.category === 'group' && completedIds.has(item.id)).length;
+
+      const specificTotal = activeItems.filter(item => item.category === 'specific').length;
+      const specificCompleted = activeItems.filter(item => item.category === 'specific' && completedIds.has(item.id)).length;
+
+      const myPostTotal = activeItems.filter(item => item.category === 'my_post').length;
+      const myPostCompleted = activeItems.filter(item => item.category === 'my_post' && completedIds.has(item.id)).length;
+
+      const total = groupTotal + specificTotal + myPostTotal;
+      const completed = groupCompleted + specificCompleted + myPostCompleted;
       const percentage = total > 0 ? (completed / total) * 100 : 0;
       
       rawMap[tab.id] = { total, completed, percentage };
     });
 
     return rawMap;
-  }, [liveTabItems, tabs, completedIds]);
+  }, [liveTabItems, tabs, completedIds, deletedItemIds]);
 
   const activeTabName = useMemo(() => {
     return tabs.find(t => t.id === selectedTabId)?.name || 'Selected Tab';
@@ -578,7 +776,22 @@ export default function App() {
                   <span className="block font-bold text-[13px] text-slate-800 truncate">
                     {activeTabName}
                   </span>
-                  <span className="block text-[11px] font-medium text-slate-500 mt-0.5">
+                  <span className="block text-[11px] font-medium mt-0.5">
+                    {tabErrors[selectedTabId] ? (
+                      <span className="text-red-600 font-bold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />
+                        Load failed: View details below
+                      </span>
+                    ) : tabInfoMsgs[selectedTabId] ? (
+                      <span className="text-amber-600 font-bold flex items-center gap-1">
+                        <Info className="w-3.5 h-3.5 text-amber-500 inline shrink-0" />
+                        {tabInfoMsgs[selectedTabId]}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        Completed: {activeTabProgressObject.completed}/{activeTabProgressObject.total} ({Math.round(activeTabProgressObject.percentage)}%)
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -592,6 +805,7 @@ export default function App() {
               <div className="absolute left-0 right-0 mt-2 bg-white/95 backdrop-blur-lg border border-slate-200/90 rounded-2xl shadow-lg shadow-blue-500/5 py-1.5 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[290px] overflow-y-auto">
                 {tabs.map((tab) => {
                   const isSelected = tab.id === selectedTabId;
+                  const progress = allTabsProgressInfo[tab.id];
                   
                   return (
                     <button
@@ -619,6 +833,33 @@ export default function App() {
                             <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3] shrink-0" />
                           )}
                         </div>
+                      </div>
+                      <div className="flex items-center justify-between w-full mt-0.5">
+                        {tabErrors[tab.id] ? (
+                          <span className="text-[10.5px] font-bold text-red-600 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
+                            Load failed (verify settings)
+                          </span>
+                        ) : tabInfoMsgs[tab.id] ? (
+                          <span className="text-[10.5px] font-bold text-amber-600 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            {tabInfoMsgs[tab.id].includes('empty') ? 'Empty' : 'No links'}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-[10.5px] font-medium text-slate-400">
+                              Completed: {progress?.completed || 0}/{progress?.total || 0} ({Math.round(progress?.percentage || 0)}%)
+                            </span>
+                            {progress?.total > 0 && (
+                              <div className="w-20 bg-slate-200/60 rounded-full h-1 overflow-hidden shrink-0 ml-3">
+                                <div 
+                                  className="bg-blue-600 h-1 rounded-full" 
+                                  style={{ width: `${progress.percentage}%` }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     </button>
                   );
@@ -692,7 +933,64 @@ export default function App() {
                 />
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2" />
               </div>
-            </div>            {/* MOBILE ONLY COLUMN CONTROLLER SWITCHER */}
+            </div>
+
+            {/* TAB SPECIFIC FETCH ERRORS AND EMPTY WARNINGS */}
+            {tabErrors[selectedTabId] && (
+              <div className="p-5 bg-red-50 border border-red-200/60 rounded-2xl text-red-850 space-y-3 shadow-2xs animate-fade-in">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-sm text-red-900">Tab "{activeTabName}" Load Error</h4>
+                    <p className="text-xs text-red-700 font-medium mt-1 leading-relaxed">
+                      {tabErrors[selectedTabId]}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="pt-2 border-t border-red-150/40 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => fetchGoogleSheetData([tabs.find(t => t.id === selectedTabId)!], sheetUrl)}
+                    className="px-3.5 py-1.5 bg-red-100 hover:bg-red-150 text-xs font-bold text-red-800 flex items-center gap-1.5 transition-all rounded-xl active:scale-95 border border-red-200"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry Syncing This Tab
+                  </button>
+                  <span className="text-[10px] font-medium text-red-600">
+                    Verify this GID or share settings. Other tabs may still work fine.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {tabInfoMsgs[selectedTabId] && !tabErrors[selectedTabId] && (
+              <div className="p-5 bg-amber-50 border border-amber-200/60 rounded-2xl text-amber-850 space-y-3 shadow-2xs animate-fade-in">
+                <div className="flex items-start gap-2.5">
+                  <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-sm text-amber-900">Tab "{activeTabName}" Status</h4>
+                    <p className="text-xs text-amber-700 font-medium mt-1 leading-relaxed">
+                      {tabInfoMsgs[selectedTabId]}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="pt-2 border-t border-amber-150/40 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => fetchGoogleSheetData([tabs.find(t => t.id === selectedTabId)!], sheetUrl)}
+                    className="px-3.5 py-1.5 bg-amber-100 hover:bg-amber-150 text-xs font-bold text-amber-800 flex items-center gap-1.5 transition-all rounded-xl active:scale-95 border border-amber-200"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry Tab
+                  </button>
+                  <span className="text-[10px] font-medium text-amber-600">
+                    Tab loaded successfully, but didn't parse any valid entries today.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* MOBILE ONLY COLUMN CONTROLLER SWITCHER */}
             <div className="lg:hidden space-y-1.5 animate-fade-in px-0.5">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 Show task types

@@ -15,6 +15,7 @@ export interface FacebookItem {
   category: 'specific' | 'my_post' | 'group'; // computed category
   targetUrl: string; // computed target link to launch
   deepLinkUrl: string; // computed facebook App deep link URL
+  isLabelOnly?: boolean; // true if no valid URL exists for the row
 }
 
 export interface AccountProgress {
