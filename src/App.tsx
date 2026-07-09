@@ -21,6 +21,7 @@ import {
   Database,
   Link,
   ChevronDown,
+  ChevronUp,
   Info,
   Smartphone,
   Check,
@@ -111,6 +112,20 @@ export default function App() {
   const [tabErrors, setTabErrors] = useState<Record<string, string>>({});
   const [tabInfoMsgs, setTabInfoMsgs] = useState<Record<string, string>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Monitor scroll for 'Back to Top' button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Current Malaysia Date for display
   const [malaysiaDateStr, setMalaysiaDateStr] = useState(getMalaysiaDateString());
@@ -179,30 +194,40 @@ export default function App() {
     setEditingItem(null);
   };
 
-  // Helper to chunk lists of items into groups of 25
-  const getSectionChunks = (items: FacebookItem[], categoryKey: string, completedIds: Set<string>) => {
+  // Helper to chunk lists of items into groups of 25 (stable based on unfiltered list)
+  const getSectionChunks = (allCategoryItems: FacebookItem[], filteredCategoryItems: FacebookItem[], categoryKey: string, completedIds: Set<string>) => {
     const chunks = [];
-    for (let i = 0; i < items.length; i += 25) {
-      const chunkItems = items.slice(i, i + 25);
+    
+    for (let i = 0; i < allCategoryItems.length; i += 25) {
+      const fullChunkItems = allCategoryItems.slice(i, i + 25);
+      
+      // Filter items in this chunk that match the search
+      const visibleChunkItems = fullChunkItems.filter(item => 
+        filteredCategoryItems.some(f => f.id === item.id)
+      );
+      
+      if (visibleChunkItems.length === 0) continue;
+
       const sectionIndex = Math.floor(i / 25) + 1;
       const key = `${selectedTabId}_${categoryKey}_sec_${sectionIndex}`;
       
-      // A chunk is considered fully completed if ALL its items are in completedIds
-      const isFullyCompleted = chunkItems.length > 0 && chunkItems.every(item => completedIds.has(item.id));
+      // A chunk is considered fully completed if ALL its original items are in completedIds
+      const isFullyCompleted = fullChunkItems.length > 0 && fullChunkItems.every(item => completedIds.has(item.id));
       
       chunks.push({
         key,
         sectionIndex,
-        items: chunkItems,
+        items: visibleChunkItems,
         startIndex: i + 1,
-        endIndex: Math.min(i + 25, items.length),
+        endIndex: Math.min(i + 25, allCategoryItems.length),
         isFullyCompleted
       });
     }
 
     // Sort chunks:
-    // 1. Chunks NOT in completedSectionsOrder go to the top, ordered by sectionIndex.
-    // 2. Chunks IN completedSectionsOrder go to the bottom, ordered by their position in that list.
+    // 1. Unfinished sections stay near the top, ordered by sectionIndex.
+    // 2. Completed sections move to the bottom, ordered by their position in completedSectionsOrder.
+    // 3. The most recently completed section (last in the array) goes to the very bottom.
     chunks.sort((a, b) => {
       const aOrderIndex = completedSectionsOrder.indexOf(a.key);
       const bOrderIndex = completedSectionsOrder.indexOf(b.key);
@@ -212,6 +237,7 @@ export default function App() {
       const bInOrder = b.isFullyCompleted && bOrderIndex !== -1;
 
       if (aInOrder && bInOrder) {
+        // Higher index in completedSectionsOrder means more recently completed, so it should be FURTHER DOWN
         return aOrderIndex - bOrderIndex;
       }
       if (aInOrder) return 1;
@@ -561,19 +587,15 @@ export default function App() {
     return items.filter(item => !deletedItemIds.has(item.id));
   }, [liveTabItems, selectedTabId, deletedItemIds]);
 
-  // --- Categorize, alphabetical sorting, and live searching ---
-  const categorizedAndFilteredItems = useMemo(() => {
-    const filtered = rawItemsForActiveTab.filter(item =>
-      item.label.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  // --- Categorize and alphabetical sorting (UNFILTERED) for stable sectioning ---
+  const categorizedItems = useMemo(() => {
+    const raw = rawItemsForActiveTab;
 
-    // Group items into three specified categories
     const specific: FacebookItem[] = [];
     const my_post: FacebookItem[] = [];
     const group: FacebookItem[] = [];
 
-    filtered.forEach(item => {
-      // Apply override
+    raw.forEach(item => {
       const override = urlOverrides[item.id];
       const targetItem = override 
         ? { 
@@ -593,17 +615,25 @@ export default function App() {
       }
     });
 
-    // Sort alphabetically so items stay in their designated chunks
-    const alphaSort = (a: FacebookItem, b: FacebookItem) => {
-      return a.label.localeCompare(b.label); 
-    };
-    
+    const alphaSort = (a: FacebookItem, b: FacebookItem) => a.label.localeCompare(b.label);
     specific.sort(alphaSort);
     my_post.sort(alphaSort);
     group.sort(alphaSort);
 
     return { specific, my_post, group };
-  }, [rawItemsForActiveTab, searchQuery, urlOverrides]);
+  }, [rawItemsForActiveTab, urlOverrides]);
+
+  // --- Filter the categorized items for live searching ---
+  const filteredCategorizedItems = useMemo(() => {
+    const filter = (list: FacebookItem[]) => 
+      list.filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return {
+      specific: filter(categorizedItems.specific),
+      my_post: filter(categorizedItems.my_post),
+      group: filter(categorizedItems.group)
+    };
+  }, [categorizedItems, searchQuery]);
 
   // --- Progress Indicators (per account tab level) ---
   const activeTabProgressObject: AccountProgress = useMemo(() => {
@@ -1083,8 +1113,8 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
-                    {categorizedAndFilteredItems.specific.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.specific, 'specific', completedIds).map((chunk, index, arr) => (
+                    {filteredCategorizedItems.specific.length > 0 ? (
+                      getSectionChunks(categorizedItems.specific, filteredCategorizedItems.specific, 'specific', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -1138,8 +1168,8 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
-                    {categorizedAndFilteredItems.my_post.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.my_post, 'my_post', completedIds).map((chunk, index, arr) => (
+                    {filteredCategorizedItems.my_post.length > 0 ? (
+                      getSectionChunks(categorizedItems.my_post, filteredCategorizedItems.my_post, 'my_post', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -1193,8 +1223,8 @@ export default function App() {
                 
                 <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
                   <AnimatePresence initial={false}>
-                    {categorizedAndFilteredItems.group.length > 0 ? (
-                      getSectionChunks(categorizedAndFilteredItems.group, 'group', completedIds).map((chunk, index, arr) => (
+                    {filteredCategorizedItems.group.length > 0 ? (
+                      getSectionChunks(categorizedItems.group, filteredCategorizedItems.group, 'group', completedIds).map((chunk, index, arr) => (
                         <CollapsibleSection
                           key={chunk.key}
                           sectionKey={chunk.key}
@@ -1241,6 +1271,22 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* BACK TO TOP BUTTON */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 20 }}
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 z-[100] p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/20 transition-all active:scale-90 group outline-none"
+            title="Scroll to Top"
+          >
+            <ChevronUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

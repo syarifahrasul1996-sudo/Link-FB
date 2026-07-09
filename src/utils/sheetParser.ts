@@ -147,16 +147,24 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
       };
     };
     
-    // Create at most one item per row based on priority
+    // Create items based on priority and user requirements
     if (isUrlValid(specificPostLink)) {
+      // If it has a direct specific task, it goes to that column only
       items.push(createItem('specific', specificPostLink, 'specific'));
-    } else if (isUrlValid(groupPostLink)) {
-      items.push(createItem('my_post', groupPostLink, 'mypost'));
-    } else if (isUrlValid(groupLink)) {
-      items.push(createItem('group', groupLink, 'group'));
     } else {
-      // Fallback: If no links at all, still add to 'group' category but mark as isLabelOnly = true with empty URL
-      items.push(createItem('group', '', 'group', true));
+      // If it DOES NOT have a direct specific task, it must be listed in "My Group" column (Category: group)
+      const hasGroupLink = isUrlValid(groupLink);
+      items.push(createItem(
+        'group', 
+        hasGroupLink ? groupLink : '', 
+        'group', 
+        !hasGroupLink
+      ));
+      
+      // If it also has a group post link, it also appears in "My Group Posts" (Category: my_post)
+      if (isUrlValid(groupPostLink)) {
+        items.push(createItem('my_post', groupPostLink, 'mypost'));
+      }
     }
   }
   

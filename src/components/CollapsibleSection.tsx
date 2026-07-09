@@ -46,7 +46,17 @@ export default function CollapsibleSection({
   }, [isAllCompleted]);
 
   return (
-    <div className="w-full flex flex-col gap-1.5 mb-2">
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ 
+        layout: { type: 'spring', damping: 25, stiffness: 300 },
+        opacity: { duration: 0.2 }
+      }}
+      className="w-full flex flex-col gap-1.5 mb-2"
+    >
       {/* Collapsible Section Header */}
       <button
         type="button"
@@ -128,7 +138,7 @@ export default function CollapsibleSection({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
