@@ -225,24 +225,31 @@ export default function App() {
     }
 
     // Sort chunks:
-    // 1. Unfinished sections stay near the top, ordered by sectionIndex.
-    // 2. Completed sections move to the bottom, ordered by their position in completedSectionsOrder.
-    // 3. The most recently completed section (last in the array) goes to the very bottom.
+    // 1. Completion status (Today's completion): Unfinished at top, Completed at bottom.
+    // 2. Relative order based on completion history (completedSectionsOrder).
+    // 3. Sections NEVER completed (not in order) go to the top of their respective group, sorted alphabetically (sectionIndex).
     chunks.sort((a, b) => {
+      // Priority 1: Completion status today
+      if (a.isFullyCompleted !== b.isFullyCompleted) {
+        return a.isFullyCompleted ? 1 : -1;
+      }
+
+      // Priority 2: Historical/Recent completion order
       const aOrderIndex = completedSectionsOrder.indexOf(a.key);
       const bOrderIndex = completedSectionsOrder.indexOf(b.key);
       
-      // A chunk is treated as sorted-to-bottom completed only if it is actually fully completed right now
-      const aInOrder = a.isFullyCompleted && aOrderIndex !== -1;
-      const bInOrder = b.isFullyCompleted && bOrderIndex !== -1;
+      const aInOrder = aOrderIndex !== -1;
+      const bInOrder = bOrderIndex !== -1;
 
       if (aInOrder && bInOrder) {
         // Higher index in completedSectionsOrder means more recently completed, so it should be FURTHER DOWN
         return aOrderIndex - bOrderIndex;
       }
-      if (aInOrder) return 1;
+      
+      if (aInOrder) return 1;  // Previously completed sections go below "never completed" ones
       if (bInOrder) return -1;
       
+      // Priority 3: Fallback to alphabetical (sectionIndex)
       return a.sectionIndex - b.sectionIndex;
     });
 
@@ -277,9 +284,7 @@ export default function App() {
         setCompletedIds(new Set());
         localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
         
-        // Reset completed sections order so sections go back to their original positions
-        setCompletedSectionsOrder([]);
-        saveCompletedSectionsOrderToStorage([]);
+        // DO NOT reset completedSectionsOrder here so the order is remembered across days.
         
         localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
       } else if (!storedResetDate) {
@@ -530,7 +535,9 @@ export default function App() {
   const handleToggleComplete = (id: string) => {
     const updated = new Set<string>(completedIds);
     
-    const items = liveTabItems[selectedTabId] || [];
+    // Use the correctly filtered list to ensure index matching with UI chunks
+    const rawItems = liveTabItems[selectedTabId] || [];
+    const items = rawItems.filter(item => !deletedItemIds.has(item.id));
     const itemToToggle = items.find(item => item.id === id);
 
     if (updated.has(id)) {
@@ -570,12 +577,10 @@ export default function App() {
             return newOrder;
           });
         } else {
-          // If any item in the section is unchecked (or not fully complete anymore), remove it from completedSectionsOrder
-          setCompletedSectionsOrder(prev => {
-            const newOrder = prev.filter(k => k !== sectionKey);
-            saveCompletedSectionsOrderToStorage(newOrder);
-            return newOrder;
-          });
+          // If any item in the section is unchecked (or not fully complete anymore), 
+          // we KEEP it in completedSectionsOrder so its relative position is remembered 
+          // even when it moves back to the top "Unfinished" group.
+          // Only remove if it was never in there? (Implicitly handled by the sort logic).
         }
       }
     }
