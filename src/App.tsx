@@ -745,12 +745,12 @@ export default function App() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-300/10 blur-[140px] pointer-events-none" />
 
       {/* HEADER BAR */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-2xs relative z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+      <header className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-3xs z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           
-          {/* Logo Title section */}
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-200/50">
+          {/* Left corner: Logo Title section */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-9 h-9 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-200/50">
               <img 
                 src="https://i.imgur.com/A1pHTmz.png" 
                 alt="Facebook Link Manager Logo"
@@ -758,42 +758,115 @@ export default function App() {
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
-              <h1 className="font-sans font-extrabold text-base sm:text-lg text-slate-800 tracking-tight flex items-center gap-2">
+            <div className="hidden xs:block">
+              <h1 className="font-sans font-extrabold text-xs sm:text-sm text-slate-800 tracking-tight flex items-center gap-1">
                 Link Companion
-                <span className="hidden sm:inline-flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] tracking-widest font-extrabold px-2 py-0.5 rounded-full uppercase">
+                <span className="hidden sm:inline-flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[7.5px] tracking-widest font-extrabold px-1 py-0.5 rounded-full uppercase">
                   PRO
                 </span>
               </h1>
-              <p className="text-[11.5px] text-slate-400 font-medium tracking-tight">Your simple link and group story tracker</p>
+              <p className="text-[10px] text-slate-400 font-medium tracking-tight">Your simple link and group story tracker</p>
             </div>
           </div>
 
-          {/* Timezone Ticker Widget */}
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col text-right pr-3.5 border-r border-slate-200">
-              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">
-                Malaysia Timezone
-              </span>
-              <span className="text-xs font-bold font-mono text-slate-700 mt-1">
-                UTC+8
-              </span>
-            </div>
-
-            {/* Premium Custom Live Capsule */}
-            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-full text-[11.5px] shadow-sm text-white font-mono tracking-tight">
-              <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
-              <div className="font-semibold">
-                MY: <span className="text-blue-300 font-bold">{malaysiaDateStr}</span>
+          {/* Flexible and Full-width Account Switcher Dropdown */}
+          <div className="flex-1 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDropdownOpen(!dropdownOpen);
+              }}
+              className={`flex items-center justify-between gap-1.5 px-3.5 h-8 bg-slate-50 border rounded-full text-xs font-extrabold transition-all active:scale-95 cursor-pointer shadow-3xs select-none w-full ${
+                dropdownOpen 
+                  ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/10 text-blue-700' 
+                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-100/40 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 shadow-3xs animate-pulse" />
+                <span className="truncate tracking-tight text-left">
+                  {activeTabName}
+                </span>
               </div>
-            </div>
+              <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${dropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
+            </button>
 
+            {dropdownOpen && (
+              <div className="absolute right-0 left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden w-full max-h-[290px] overflow-y-auto">
+                <div className="px-3.5 py-1 text-[8.5px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-50/50">
+                  Switch Active Account
+                </div>
+                {tabs.map((tab) => {
+                  const isSelected = tab.id === selectedTabId;
+                  const progress = allTabsProgressInfo[tab.id];
+                  
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setSelectedTabId(tab.id);
+                        localStorage.setItem('fb_link_manager_selected_tab_id', tab.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 flex flex-col gap-0.5 transition-all duration-150 cursor-pointer select-none ${
+                        isSelected 
+                          ? 'bg-blue-50/50 hover:bg-blue-50' 
+                          : 'hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 w-full">
+                        <span className={`text-[11.5px] truncate tracking-tight ${
+                          isSelected ? 'font-extrabold text-blue-700' : 'font-bold text-slate-700'
+                        }`}>
+                          {tab.name}
+                        </span>
+                        
+                        {isSelected && (
+                          <Check className="w-3 h-3 text-blue-600 stroke-[3.5] shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between w-full">
+                        {tabErrors[tab.id] ? (
+                          <span className="text-[8.5px] font-extrabold text-red-600 flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-red-500 shrink-0 animate-pulse" />
+                            Connection error
+                          </span>
+                        ) : tabInfoMsgs[tab.id] ? (
+                          <span className="text-[8.5px] font-extrabold text-amber-600 flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                            {tabInfoMsgs[tab.id].includes('empty') ? 'Empty' : 'No links'}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-[9px] font-bold text-slate-400">
+                              <span className="text-slate-600 font-extrabold font-mono">{progress?.completed || 0}/{progress?.total || 0}</span> done ({Math.round(progress?.percentage || 0)}%)
+                            </span>
+                            {progress?.total > 0 && (
+                              <div className="w-14 bg-slate-100 rounded-full h-1 overflow-hidden shrink-0 ml-2">
+                                <div 
+                                  className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
+                                  style={{ width: `${progress.percentage}%` }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right corner: Settings */}
+          <div className="shrink-0">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-full text-xs font-bold text-slate-700 transition-all active:scale-95 shadow-3xs"
+              className="flex items-center justify-center h-8 w-8 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 rounded-full text-slate-500 hover:text-slate-700 transition-all active:scale-95 shadow-3xs cursor-pointer"
+              title="Configure Google Sheet"
             >
-              <Settings className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Configure Sheet</span>
+              <Settings className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </button>
           </div>
         </div>
@@ -824,123 +897,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ACCOUNT TAB SELECTOR */}
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block ml-0.5">
-            Active Account
-          </span>
-          {/* CUSTOM ACCENT-THEMED DROPDOWN */}
-          <div className="relative w-full max-w-md z-30">
-            {/* Dropdown trigger button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDropdownOpen(!dropdownOpen);
-              }}
-              className={`w-full bg-white text-left py-3.5 px-5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-xs cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-500/20 ${
-                dropdownOpen 
-                  ? 'border-blue-500 ring-2 ring-blue-500/10 shadow-sm' 
-                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-              }`}
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 shadow-3xs animate-ping-slow" />
-                <div className="leading-tight min-w-0">
-                  <span className="block font-extrabold text-[13.5px] text-slate-800 truncate tracking-tight">
-                    {activeTabName}
-                  </span>
-                  <span className="block text-[10.5px] font-bold mt-0.5">
-                    {tabErrors[selectedTabId] ? (
-                      <span className="text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />
-                        Load failed: View details below
-                      </span>
-                    ) : tabInfoMsgs[selectedTabId] ? (
-                      <span className="text-amber-600 flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-amber-500 inline shrink-0" />
-                        {tabInfoMsgs[selectedTabId]}
-                      </span>
-                    ) : (
-                      <span className="text-slate-500 font-medium">
-                        Progress: <span className="text-blue-600 font-extrabold font-mono">{activeTabProgressObject.completed}/{activeTabProgressObject.total}</span> completed ({Math.round(activeTabProgressObject.percentage)}%)
-                      </span>
-                    )}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-slate-450 ml-1.5 transition-transform duration-250 shrink-0 ${
-                dropdownOpen ? 'rotate-180 text-blue-600 stroke-[3]' : 'stroke-[2.5]'
-              }`} />
-            </button>
 
-            {/* Dropdown menu panel */}
-            {dropdownOpen && (
-              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-md py-1.5 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[310px] overflow-y-auto">
-                {tabs.map((tab) => {
-                  const isSelected = tab.id === selectedTabId;
-                  const progress = allTabsProgressInfo[tab.id];
-                  
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        setSelectedTabId(tab.id);
-                        localStorage.setItem('fb_link_manager_selected_tab_id', tab.id);
-                        setDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-5 py-3.5 flex flex-col gap-2 transition-all duration-150 cursor-pointer select-none ${
-                        isSelected 
-                          ? 'bg-blue-50/50 hover:bg-blue-50' 
-                          : 'hover:bg-slate-50/60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3 w-full">
-                        <span className={`text-[13px] truncate tracking-tight ${
-                          isSelected ? 'font-extrabold text-blue-700' : 'font-bold text-slate-700'
-                        }`}>
-                          {tab.name}
-                        </span>
-                        
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isSelected && (
-                            <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3.5] shrink-0" />
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between w-full mt-0.5">
-                        {tabErrors[tab.id] ? (
-                          <span className="text-[10px] font-extrabold text-red-600 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
-                            Connection error
-                          </span>
-                        ) : tabInfoMsgs[tab.id] ? (
-                          <span className="text-[10px] font-extrabold text-amber-600 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                            {tabInfoMsgs[tab.id].includes('empty') ? 'Empty' : 'No links'}
-                          </span>
-                        ) : (
-                          <>
-                            <span className="text-[10px] font-bold text-slate-400">
-                              Completed: <span className="text-slate-600 font-extrabold font-mono">{progress?.completed || 0}/{progress?.total || 0}</span> ({Math.round(progress?.percentage || 0)}%)
-                            </span>
-                            {progress?.total > 0 && (
-                              <div className="w-24 bg-slate-100 rounded-full h-1 overflow-hidden shrink-0 ml-3">
-                                <div 
-                                  className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
-                                  style={{ width: `${progress.percentage}%` }}
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* LOADING & ERRORS */}
         {loading && (
@@ -982,29 +939,29 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Filter and Control Bar */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-3xs flex flex-col justify-center">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block ml-0.5">
+            <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-3xs flex flex-col justify-center w-full">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-widest block ml-0.5">
                   Search & Filter Tasks
                 </label>
                 {deletedItemIds.size > 0 && (
                   <button
                     onClick={handleRestoreDeleted}
-                    className="text-[10.5px] font-extrabold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
+                    className="text-[9.5px] font-extrabold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
                   >
                     Restore {deletedItemIds.size} Deleted Link{deletedItemIds.size > 1 ? 's' : ''}
                   </button>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative flex items-center">
                 <input
                   type="text"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl leading-none text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 font-medium"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg leading-none text-[11.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 font-medium"
                   placeholder="Search links (e.g. 'Community', 'Main')..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
               </div>
             </div>
 
