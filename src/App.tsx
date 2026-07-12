@@ -273,13 +273,53 @@ export default function App() {
 
   // --- Clock display timer and Automated Reset triggers ---
   useEffect(() => {
+    // Initial mount diagnostic logging
+    const initialMalaysiaDate = getMalaysiaDateString();
+    const initialStoredDate = localStorage.getItem('fb_link_manager_last_reset_date');
+    const initialMs = getMsUntilMalaysiaMidnight();
+    const initialCountdown = formatMillisecondsToCountdown(initialMs);
+    
+    console.log(`%c[Timezone Initialized]
+- Local Browser Time: ${new Date().toString()}
+- Local Timezone Offset: ${new Date().getTimezoneOffset()} minutes
+- Malaysia Date String (Today): ${initialMalaysiaDate}
+- Stored Last Reset Date: ${initialStoredDate || 'None (will set on next tick)'}
+- Time Until next Malaysia Midnight: ${initialCountdown} (${initialMs} ms)
+- Rollover Will Trigger Instantly: ${initialStoredDate && initialStoredDate !== initialMalaysiaDate ? 'YES (Mismatch)' : 'NO (Match)'}
+`, "color: #2563eb; font-weight: bold;");
+
+    let tickCount = 0;
+
     const timer = setInterval(() => {
+      const d = new Date();
       const tdMalaysia = getMalaysiaDateString();
       setMalaysiaDateStr(tdMalaysia);
       
-      // Check for midnight rollover to reset checkmarks
       const storedResetDate = localStorage.getItem('fb_link_manager_last_reset_date');
+      
+      // Throttle logging: Log diagnostics once every 15 seconds (to avoid spam, but keep it active)
+      tickCount++;
+      if (tickCount % 15 === 0) {
+        const msUntilMidnight = getMsUntilMalaysiaMidnight();
+        const countdownStr = formatMillisecondsToCountdown(msUntilMidnight);
+        console.log(`[Timer Diagnostic - Every 15s]
+- Local Browser Time: ${d.toString()}
+- Current Malaysia Date: "${tdMalaysia}"
+- Stored Last Reset Date: "${storedResetDate || 'None'}"
+- Remaining until midnight: ${countdownStr}
+- Status: ${storedResetDate === tdMalaysia ? 'ACTIVE (Match)' : 'MISMATCH (Will trigger reset if stored date exists)'}
+`);
+      }
+
+      // Check for midnight rollover to reset checkmarks
       if (storedResetDate && storedResetDate !== tdMalaysia) {
+        console.warn(`%c[Midnight Reset Rollover Triggered]
+- Mismatch detected! 
+- Stored Reset Date: "${storedResetDate}"
+- Current Malaysia Date: "${tdMalaysia}"
+- Cleared Completed IDs state and updated stored reset date.
+`, "color: #ea580c; font-weight: bold; background-color: #ffedd5; padding: 4px;");
+
         // Midnight Malaysia Time hit! Reset completed items (checkmarks).
         setCompletedIds(new Set());
         localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
@@ -288,11 +328,15 @@ export default function App() {
         
         localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
       } else if (!storedResetDate) {
+        console.log(`[Timer Setup] Initialized last reset date in LocalStorage to today: "${tdMalaysia}"`);
         localStorage.setItem('fb_link_manager_last_reset_date', tdMalaysia);
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      console.log("[Timer Cleanup] Cleared clock and rollover interval timer.");
+      clearInterval(timer);
+    };
   }, []);
 
   // --- Save / Fetch Handlers ---

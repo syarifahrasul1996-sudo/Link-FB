@@ -5,20 +5,43 @@
  * format: YYYY-MM-DD
  */
 export function getMalaysiaDateString(): string {
+  try {
+    const d = new Date();
+    // 'en-CA' locale produces 'YYYY-MM-DD' format reliably in standard environments
+    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+  } catch (e) {
+    console.error("[Timezone Error] Failed to format Malaysia date using en-CA locale:", e);
+  }
+
+  // Fallback to parts-based formatting
+  try {
+    const d = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    
+    const parts = formatter.formatToParts(d);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {
+    console.error("[Timezone Error] Fallback parts formatter failed:", e);
+  }
+
+  // Absolute baseline fallback: local system date (not perfect for Malaysia, but format-safe)
   const d = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kuala_Lumpur',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  
-  const parts = formatter.formatToParts(d);
-  const year = parts.find(p => p.type === 'year')?.value;
-  const month = parts.find(p => p.type === 'month')?.value;
-  const day = parts.find(p => p.type === 'day')?.value;
-  
-  return `${year}-${month}-${day}`;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**
