@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { FacebookItem } from '../types';
 import FBItemCard from './FBItemCard';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, ChevronDown, ExternalLink, Edit2, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Edit2, Trash2, Calendar, FileText, Users, Bookmark, Link2 } from 'lucide-react';
 import { getSafeUrlForRender } from '../utils/urlValidator';
 
 interface CollapsibleSectionProps {
@@ -86,42 +86,42 @@ export default function CollapsibleSection({
         layout: { type: 'spring', damping: 25, stiffness: 300 },
         opacity: { duration: 0.2 }
       }}
-      className="w-full flex flex-col gap-1.5 mb-2"
+      className="w-full flex flex-col gap-2 mb-3"
     >
-      {/* Collapsible Section Header */}
+      {/* Collapsible Section Header with modern, premium styling */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl border text-xs font-semibold transition-all duration-200 select-none cursor-pointer ${
+        className={`w-full flex items-center justify-between py-3 px-4.5 rounded-2xl border text-xs font-semibold transition-all duration-250 select-none cursor-pointer outline-none hover:shadow-xs active:scale-[0.99] ${
           isAllCompleted
-            ? 'bg-emerald-50/60 hover:bg-emerald-50 border-emerald-200/60 text-emerald-800 shadow-xs'
-            : 'bg-slate-50/80 hover:bg-slate-100/90 border-slate-200 text-slate-700 shadow-2xs'
+            ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs hover:bg-emerald-600'
+            : 'bg-white/80 hover:bg-white border-slate-200 text-slate-700 shadow-2xs backdrop-blur-xs'
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {isAllCompleted ? (
-            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white shrink-0">
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+            <div className="flex items-center justify-center w-5.5 h-5.5 rounded-full bg-white text-emerald-600 shadow-2xs shrink-0">
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
             </div>
           ) : (
-            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200/80 text-slate-600 shrink-0 font-bold font-mono text-[10px]">
+            <div className="flex items-center justify-center w-5.5 h-5.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0 font-extrabold font-mono text-[10px]">
               {sectionIndex}
             </div>
           )}
-          <span>
+          <span className="font-sans text-[12.5px] tracking-tight">
             {isAllCompleted ? 'Completed Section' : 'Section'} {sectionIndex}
-            <span className="ml-1.5 font-normal text-slate-400">
-              ({startIndex}-{endIndex})
+            <span className={`ml-1.5 font-semibold text-[10.5px] font-mono ${isAllCompleted ? 'text-emerald-100/90' : 'text-slate-400'}`}>
+              [#{startIndex} - #{endIndex}]
             </span>
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           <span
-            className={`px-2 py-0.5 rounded-full font-mono text-[10px] ${
+            className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
               isAllCompleted
-                ? 'bg-emerald-100 text-emerald-800'
-                : 'bg-slate-200/50 text-slate-600'
+                ? 'bg-emerald-600/50 text-emerald-50'
+                : 'bg-slate-100 text-slate-600 border border-slate-200/60'
             }`}
           >
             {completedCount}/{totalCount} Done
@@ -130,7 +130,7 @@ export default function CollapsibleSection({
             animate={{ rotate: isExpanded ? 180 : 0 }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
           >
-            <ChevronDown className="w-4 h-4 opacity-70" />
+            <ChevronDown className={`w-4 h-4 ${isAllCompleted ? 'text-white' : 'text-slate-400'}`} />
           </motion.div>
         </div>
       </button>
@@ -144,18 +144,18 @@ export default function CollapsibleSection({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="overflow-hidden flex flex-col gap-1.5 w-full mt-1"
+            className="overflow-hidden flex flex-col gap-2 w-full mt-0.5 px-3.5"
           >
             {/* View Mode Controller */}
-            <div className="flex justify-between items-center px-1 py-1 mb-2.5">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold font-sans">
+            <div className="flex justify-between items-center px-1.5 py-1 mb-1.5">
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold font-sans">
                 {viewMode === 'grid' ? 'Grid View (5x5)' : 'List View'}
               </span>
-              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-250">
+              <div className="flex bg-slate-100 border border-slate-200/60 p-0.5 rounded-xl">
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className={`px-2 py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-[10px] font-extrabold rounded-lg transition-all duration-150 cursor-pointer ${
                     viewMode === 'list'
                       ? 'bg-white text-slate-800 shadow-2xs'
                       : 'text-slate-400 hover:text-slate-600'
@@ -166,7 +166,7 @@ export default function CollapsibleSection({
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`px-2 py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-[10px] font-extrabold rounded-lg transition-all duration-150 cursor-pointer ${
                     viewMode === 'grid'
                       ? 'bg-white text-slate-800 shadow-2xs'
                       : 'text-slate-400 hover:text-slate-600'
@@ -178,7 +178,7 @@ export default function CollapsibleSection({
             </div>
 
             {viewMode === 'list' ? (
-              <div className="flex flex-col gap-1.5 w-full">
+              <div className="flex flex-col gap-2 w-full">
                 {items.map((item) => (
                   <FBItemCard
                     key={item.id}
@@ -192,28 +192,28 @@ export default function CollapsibleSection({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col gap-3.5 w-full">
-                {/* Grid layout (5x5) */}
-                <div className="grid grid-cols-5 gap-2 w-full max-w-md mx-auto">
+              <div className="flex flex-col gap-4 w-full">
+                {/* 5x5 Grid Layout Redesigned - Centered Perfectly using Flex wrapping and mathematical calc sizing */}
+                <div className="flex flex-wrap justify-center gap-2.5 w-full max-w-sm mx-auto">
                   {items.map((item, idx) => {
                     const isItemCompleted = completedIds.has(item.id);
                     const isSelected = currentSelectedItem && currentSelectedItem.id === item.id;
                     const itemIndex = startIndex + idx;
                     
-                    let categoryColorClass = '';
+                    let styleClass = '';
                     if (isItemCompleted) {
-                      categoryColorClass = 'bg-emerald-50 border-emerald-300 text-emerald-700';
+                      styleClass = 'bg-gradient-to-br from-emerald-500 to-teal-500 border-transparent text-white shadow-xs scale-98';
                     } else {
                       switch (item.category) {
                         case 'specific':
-                          categoryColorClass = 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100/50';
+                          styleClass = 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-150/70 text-blue-700 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300';
                           break;
                         case 'my_post':
-                          categoryColorClass = 'bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100/50';
+                          styleClass = 'bg-gradient-to-br from-sky-50 to-cyan-50 border-sky-150/70 text-sky-700 hover:from-sky-100 hover:to-cyan-100 hover:border-sky-300';
                           break;
                         case 'group':
                         default:
-                          categoryColorClass = 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100/50';
+                          styleClass = 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-150/70 text-purple-700 hover:from-purple-100 hover:to-indigo-100 hover:border-purple-300';
                           break;
                       }
                     }
@@ -223,94 +223,104 @@ export default function CollapsibleSection({
                         key={item.id}
                         type="button"
                         onClick={() => setSelectedItemId(item.id)}
-                        className={`aspect-square rounded-xl border flex flex-col items-center justify-center relative font-mono text-xs font-bold transition-all duration-150 cursor-pointer ${categoryColorClass} ${
-                          isSelected ? 'ring-2 ring-slate-800 ring-offset-1 scale-105 z-10 shadow-xs' : 'shadow-2xs'
+                        className={`w-[calc((100%-42px)/5)] aspect-square rounded-2xl border flex flex-col items-center justify-center relative font-mono text-[13px] font-extrabold transition-all duration-200 active:scale-90 hover:scale-[1.05] cursor-pointer ${styleClass} ${
+                          isSelected ? 'ring-2 ring-slate-800 ring-offset-2 scale-105 z-10 shadow-sm' : 'shadow-3xs'
                         }`}
                       >
                         {isItemCompleted ? (
-                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-2xs">
-                            <Check className="w-2 h-2 stroke-[3]" />
+                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border border-white flex items-center justify-center text-white shadow-xs">
+                            <Check className="w-2.5 h-2.5 stroke-[4]" />
                           </div>
                         ) : null}
-                        <span className="text-[13px]">{itemIndex}</span>
+                        <span>{itemIndex}</span>
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Grid Item Details Panel */}
+                {/* Highly Polished Grid Item Details Panel */}
                 {currentSelectedItem && (
                   <motion.div 
                     layout
-                    initial={{ opacity: 0, y: 5 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex flex-col gap-3 w-full max-w-md mx-auto shadow-2xs"
+                    className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-4 flex flex-col gap-3.5 w-full max-w-sm mx-auto shadow-xs"
                   >
-                    <div className="flex justify-between items-start gap-2">
+                    <div className="flex justify-between items-start gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded-md">
-                            Item #{items.indexOf(currentSelectedItem) + startIndex}
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                          <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 bg-slate-900 text-white rounded-full shadow-3xs">
+                            Index #{items.indexOf(currentSelectedItem) + startIndex}
                           </span>
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
+                          <span className={`text-[9.5px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                             currentSelectedItem.category === 'specific' 
-                              ? 'bg-blue-100 text-blue-800' 
+                              ? 'bg-blue-100/70 text-blue-800 border border-blue-200/50' 
                               : currentSelectedItem.category === 'my_post'
-                                ? 'bg-sky-100 text-sky-800'
-                                : 'bg-purple-100 text-purple-800'
+                                ? 'bg-sky-100/70 text-sky-850 border border-sky-200/50'
+                                : 'bg-purple-100/70 text-purple-800 border border-purple-200/50'
                           }`}>
-                            {currentSelectedItem.category === 'specific' ? 'Specific Post' : currentSelectedItem.category === 'my_post' ? 'My Post' : 'Group Link'}
+                            {currentSelectedItem.category === 'specific' ? (
+                              <>
+                                <Bookmark className="w-2.5 h-2.5" />
+                                Direct Task
+                              </>
+                            ) : currentSelectedItem.category === 'my_post' ? (
+                              <>
+                                <FileText className="w-2.5 h-2.5" />
+                                My Post
+                              </>
+                            ) : (
+                              <>
+                                <Users className="w-2.5 h-2.5" />
+                                Group Link
+                              </>
+                            )}
                           </span>
                         </div>
-                        <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">
+                        <h4 className="text-[12.5px] font-bold text-slate-800 line-clamp-2 leading-snug">
                           {currentSelectedItem.label}
                         </h4>
-                        {!currentSelectedItem.isLabelOnly && (
-                          <p className="text-[10px] text-slate-400 truncate mt-0.5 max-w-full font-mono">
-                            {currentSelectedItem.targetUrl}
-                          </p>
-                        )}
                       </div>
                       
-                      {/* Quick checkbox toggle */}
+                      {/* Premium Circle Check Toggle inside Details Panel */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleComplete(currentSelectedItem.id);
                         }}
-                        className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                        className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all shrink-0 cursor-pointer active:scale-95 hover:shadow-2xs ${
                           completedIds.has(currentSelectedItem.id)
-                            ? 'bg-slate-900 border-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-2xs'
+                            : 'border-slate-200 bg-white text-slate-400 hover:border-blue-500 hover:text-blue-500'
                         }`}
                         title={completedIds.has(currentSelectedItem.id) ? "Mark incomplete" : "Mark complete"}
                       >
-                        <Check className="w-4 h-4 stroke-[2.5]" />
+                        <Check className="w-4 h-4 stroke-[3]" />
                       </button>
                     </div>
 
-                    <div className="flex gap-2 w-full mt-0.5">
+                    <div className="flex gap-2 w-full pt-1 border-t border-slate-100">
                       {!currentSelectedItem.isLabelOnly ? (
                         <button
                           type="button"
                           onClick={() => handleOpenLinkAndComplete(currentSelectedItem)}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                          className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          Open & Complete
+                          Open Link
                         </button>
                       ) : (
-                        <div className="flex-1 bg-slate-100 text-slate-400 font-semibold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed">
-                          No URL Available
+                        <div className="flex-1 bg-slate-100 text-slate-400 font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed border border-slate-200/50">
+                          No URL Configured
                         </div>
                       )}
                       
                       <button
                         type="button"
                         onClick={() => onEdit(currentSelectedItem)}
-                        className="bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 text-slate-600 p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer"
-                        title="Edit Link"
+                        className="bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 active:scale-95 text-slate-600 p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-3xs"
+                        title="Edit Link Details"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -318,11 +328,11 @@ export default function CollapsibleSection({
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm("Delete this link?")) {
+                          if (confirm("Permanently delete this link? This will only hide it on your current device.")) {
                             onDelete(currentSelectedItem.id);
                           }
                         }}
-                        className="bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 active:scale-95 text-slate-500 p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer"
+                        className="bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 active:scale-95 text-slate-500 p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-3xs"
                         title="Delete Link"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -334,10 +344,10 @@ export default function CollapsibleSection({
             )}
 
             {!isLastSection && (
-              <div className="py-2.5 flex items-center justify-center">
-                <div className="w-12 h-[1px] bg-slate-200/80" />
-                <div className="mx-2 w-1.5 h-1.5 rounded-full border border-slate-200 bg-slate-50" />
-                <div className="w-12 h-[1px] bg-slate-200/80" />
+              <div className="py-2 flex items-center justify-center">
+                <div className="w-12 h-[1px] bg-slate-200/50" />
+                <div className="mx-2 w-1 h-1 rounded-full bg-slate-300" />
+                <div className="w-12 h-[1px] bg-slate-200/50" />
               </div>
             )}
           </motion.div>

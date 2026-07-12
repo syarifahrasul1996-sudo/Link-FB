@@ -224,17 +224,10 @@ export default function App() {
       });
     }
 
-    // Sort chunks:
-    // 1. Completion status (Today's completion): Unfinished at top, Completed at bottom.
-    // 2. Relative order based on completion history (completedSectionsOrder).
-    // 3. Sections NEVER completed (not in order) go to the top of their respective group, sorted alphabetically (sectionIndex).
+    // Sort chunks strictly by their completion rotation history (completedSectionsOrder):
+    // 1. Sections that are in completedSectionsOrder go to the bottom of the list, sorted by their order of completion.
+    // 2. Sections that are NOT in completedSectionsOrder (never completed) stay at the top, sorted alphabetically/numerically by sectionIndex.
     chunks.sort((a, b) => {
-      // Priority 1: Completion status today
-      if (a.isFullyCompleted !== b.isFullyCompleted) {
-        return a.isFullyCompleted ? 1 : -1;
-      }
-
-      // Priority 2: Historical/Recent completion order
       const aOrderIndex = completedSectionsOrder.indexOf(a.key);
       const bOrderIndex = completedSectionsOrder.indexOf(b.key);
       
@@ -242,14 +235,14 @@ export default function App() {
       const bInOrder = bOrderIndex !== -1;
 
       if (aInOrder && bInOrder) {
-        // Higher index in completedSectionsOrder means more recently completed, so it should be FURTHER DOWN
+        // Sort by completion history order (more recently completed sections go further down)
         return aOrderIndex - bOrderIndex;
       }
       
       if (aInOrder) return 1;  // Previously completed sections go below "never completed" ones
       if (bInOrder) return -1;
       
-      // Priority 3: Fallback to alphabetical (sectionIndex)
+      // Fallback to alphabetical/numerical index for sections never completed
       return a.sectionIndex - b.sectionIndex;
     });
 
@@ -745,60 +738,61 @@ export default function App() {
   }, [tabs, selectedTabId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/60 via-indigo-50/40 to-sky-100/30 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-150 flex flex-col font-sans relative overflow-hidden">
       
       {/* Decorative ambient glass circles */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-400/10 blur-[130px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-300/10 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-300/10 blur-[140px] pointer-events-none" />
 
       {/* HEADER BAR */}
-      <header className="bg-white/70 backdrop-blur-md border-b border-white/40 shadow-xs relative z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-2xs relative z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo Title section */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow-xs">
+            <div className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-slate-200/50">
               <img 
                 src="https://i.imgur.com/A1pHTmz.png" 
                 alt="Facebook Link Manager Logo"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover animate-pulse-slow"
                 referrerPolicy="no-referrer"
               />
             </div>
             <div>
-              <h1 className="font-sans font-extrabold text-lg text-slate-800 tracking-tight flex items-center gap-2">
+              <h1 className="font-sans font-extrabold text-base sm:text-lg text-slate-800 tracking-tight flex items-center gap-2">
                 Link Companion
-                <span className="hidden sm:inline-flex bg-blue-50 border border-blue-200/60 text-blue-700 text-[10px] tracking-wide font-extrabold px-2 py-0.5 rounded-md">
-                  Task Flow
+                <span className="hidden sm:inline-flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] tracking-widest font-extrabold px-2 py-0.5 rounded-full uppercase">
+                  PRO
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 font-medium">Your simple link and group story tracker</p>
+              <p className="text-[11.5px] text-slate-400 font-medium tracking-tight">Your simple link and group story tracker</p>
             </div>
           </div>
 
           {/* Timezone Ticker Widget */}
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex flex-col text-right border-r border-slate-100 pr-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                Malaysia timezone
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex flex-col text-right pr-3.5 border-r border-slate-200">
+              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">
+                Malaysia Timezone
               </span>
-              <span className="text-sm font-semibold font-mono text-slate-700 mt-1">
-                {malaysiaDateStr}
+              <span className="text-xs font-bold font-mono text-slate-700 mt-1">
+                UTC+8
               </span>
             </div>
 
-            <div className="flex items-center gap-2 bg-white/40 backdrop-blur-xs border border-white/55 px-3 py-1.5 rounded-lg text-xs">
-              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-              <div className="font-medium text-slate-600">
-                Malaysia: <span className="font-bold font-mono text-blue-700">{malaysiaDateStr}</span>
+            {/* Premium Custom Live Capsule */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-full text-[11.5px] shadow-sm text-white font-mono tracking-tight">
+              <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
+              <div className="font-semibold">
+                MY: <span className="text-blue-300 font-bold">{malaysiaDateStr}</span>
               </div>
             </div>
 
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/60 hover:bg-white/90 rounded-lg text-xs font-semibold text-slate-700 transition-all border border-white/70 active:scale-95 shadow-2xs backdrop-blur-xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-full text-xs font-bold text-slate-700 transition-all active:scale-95 shadow-3xs"
             >
-              <Settings className="w-4 h-4 text-slate-500" />
+              <Settings className="w-3.5 h-3.5 text-slate-500" />
               <span className="hidden sm:inline">Configure Sheet</span>
             </button>
           </div>
@@ -831,9 +825,9 @@ export default function App() {
         )}
 
         {/* ACCOUNT TAB SELECTOR */}
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-            Select Account Tab
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block ml-0.5">
+            Active Account
           </span>
           {/* CUSTOM ACCENT-THEMED DROPDOWN */}
           <div className="relative w-full max-w-md z-30">
@@ -843,45 +837,45 @@ export default function App() {
                 e.stopPropagation();
                 setDropdownOpen(!dropdownOpen);
               }}
-              className={`w-full bg-white/75 backdrop-blur-md text-left py-3 px-4.5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-2xs cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-500/20 ${
+              className={`w-full bg-white text-left py-3.5 px-5 rounded-2xl border transition-all duration-200 flex items-center justify-between shadow-xs cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-500/20 ${
                 dropdownOpen 
-                  ? 'border-blue-500/70 shadow-sm ring-2 ring-blue-500/10' 
-                  : 'border-slate-200/80 hover:border-slate-350 hover:bg-white/90'
+                  ? 'border-blue-500 ring-2 ring-blue-500/10 shadow-sm' 
+                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse shrink-0" />
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 shadow-3xs animate-ping-slow" />
                 <div className="leading-tight min-w-0">
-                  <span className="block font-bold text-[13px] text-slate-800 truncate">
+                  <span className="block font-extrabold text-[13.5px] text-slate-800 truncate tracking-tight">
                     {activeTabName}
                   </span>
-                  <span className="block text-[11px] font-medium mt-0.5">
+                  <span className="block text-[10.5px] font-bold mt-0.5">
                     {tabErrors[selectedTabId] ? (
-                      <span className="text-red-600 font-bold flex items-center gap-1">
+                      <span className="text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />
                         Load failed: View details below
                       </span>
                     ) : tabInfoMsgs[selectedTabId] ? (
-                      <span className="text-amber-600 font-bold flex items-center gap-1">
+                      <span className="text-amber-600 flex items-center gap-1">
                         <Info className="w-3.5 h-3.5 text-amber-500 inline shrink-0" />
                         {tabInfoMsgs[selectedTabId]}
                       </span>
                     ) : (
-                      <span className="text-slate-500">
-                        Completed: {activeTabProgressObject.completed}/{activeTabProgressObject.total} ({Math.round(activeTabProgressObject.percentage)}%)
+                      <span className="text-slate-500 font-medium">
+                        Progress: <span className="text-blue-600 font-extrabold font-mono">{activeTabProgressObject.completed}/{activeTabProgressObject.total}</span> completed ({Math.round(activeTabProgressObject.percentage)}%)
                       </span>
                     )}
                   </span>
                 </div>
               </div>
-              <ChevronDown className={`w-4 h-4 text-slate-500 ml-1.5 transition-transform duration-200 shrink-0 ${
+              <ChevronDown className={`w-4 h-4 text-slate-450 ml-1.5 transition-transform duration-250 shrink-0 ${
                 dropdownOpen ? 'rotate-180 text-blue-600 stroke-[3]' : 'stroke-[2.5]'
               }`} />
             </button>
 
             {/* Dropdown menu panel */}
             {dropdownOpen && (
-              <div className="absolute left-0 right-0 mt-2 bg-white/95 backdrop-blur-lg border border-slate-200/90 rounded-2xl shadow-lg shadow-blue-500/5 py-1.5 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[290px] overflow-y-auto">
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-md py-1.5 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[310px] overflow-y-auto">
                 {tabs.map((tab) => {
                   const isSelected = tab.id === selectedTabId;
                   const progress = allTabsProgressInfo[tab.id];
@@ -894,14 +888,14 @@ export default function App() {
                         localStorage.setItem('fb_link_manager_selected_tab_id', tab.id);
                         setDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 flex flex-col gap-1.5 transition-all duration-150 cursor-pointer select-none ${
+                      className={`w-full text-left px-5 py-3.5 flex flex-col gap-2 transition-all duration-150 cursor-pointer select-none ${
                         isSelected 
-                          ? 'bg-blue-50/70 hover:bg-blue-50' 
-                          : 'hover:bg-slate-50/80'
+                          ? 'bg-blue-50/50 hover:bg-blue-50' 
+                          : 'hover:bg-slate-50/60'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 w-full">
-                        <span className={`text-[12.5px] truncate ${
+                        <span className={`text-[13px] truncate tracking-tight ${
                           isSelected ? 'font-extrabold text-blue-700' : 'font-bold text-slate-700'
                         }`}>
                           {tab.name}
@@ -909,30 +903,30 @@ export default function App() {
                         
                         <div className="flex items-center gap-1.5 shrink-0">
                           {isSelected && (
-                            <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3] shrink-0" />
+                            <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3.5] shrink-0" />
                           )}
                         </div>
                       </div>
                       <div className="flex items-center justify-between w-full mt-0.5">
                         {tabErrors[tab.id] ? (
-                          <span className="text-[10.5px] font-bold text-red-600 flex items-center gap-1">
+                          <span className="text-[10px] font-extrabold text-red-600 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
-                            Load failed (verify settings)
+                            Connection error
                           </span>
                         ) : tabInfoMsgs[tab.id] ? (
-                          <span className="text-[10.5px] font-bold text-amber-600 flex items-center gap-1">
+                          <span className="text-[10px] font-extrabold text-amber-600 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             {tabInfoMsgs[tab.id].includes('empty') ? 'Empty' : 'No links'}
                           </span>
                         ) : (
                           <>
-                            <span className="text-[10.5px] font-medium text-slate-400">
-                              Completed: {progress?.completed || 0}/{progress?.total || 0} ({Math.round(progress?.percentage || 0)}%)
+                            <span className="text-[10px] font-bold text-slate-400">
+                              Completed: <span className="text-slate-600 font-extrabold font-mono">{progress?.completed || 0}/{progress?.total || 0}</span> ({Math.round(progress?.percentage || 0)}%)
                             </span>
                             {progress?.total > 0 && (
-                              <div className="w-20 bg-slate-200/60 rounded-full h-1 overflow-hidden shrink-0 ml-3">
+                              <div className="w-24 bg-slate-100 rounded-full h-1 overflow-hidden shrink-0 ml-3">
                                 <div 
-                                  className="bg-blue-600 h-1 rounded-full" 
+                                  className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
                                   style={{ width: `${progress.percentage}%` }}
                                 />
                               </div>
@@ -988,15 +982,15 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Filter and Control Bar */}
-            <div className="bg-white/45 backdrop-blur-md rounded-2xl p-3.5 border border-white/55 shadow-xs flex flex-col justify-center">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Search & Filter
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-3xs flex flex-col justify-center">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block ml-0.5">
+                  Search & Filter Tasks
                 </label>
                 {deletedItemIds.size > 0 && (
                   <button
                     onClick={handleRestoreDeleted}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
+                    className="text-[10.5px] font-extrabold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
                   >
                     Restore {deletedItemIds.size} Deleted Link{deletedItemIds.size > 1 ? 's' : ''}
                   </button>
@@ -1005,12 +999,12 @@ export default function App() {
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full pl-9 pr-4 py-1.5 bg-white/55 hover:bg-white/90 border border-slate-200 rounded-xl leading-none text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium backdrop-blur-xs"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl leading-none text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 font-medium"
                   placeholder="Search links (e.g. 'Community', 'Main')..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               </div>
             </div>
 
@@ -1071,26 +1065,26 @@ export default function App() {
 
             {/* MOBILE ONLY COLUMN CONTROLLER SWITCHER */}
             <div className="lg:hidden space-y-1.5 animate-fade-in px-0.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">
                 Show task types
               </span>
-              <div className="grid grid-cols-3 bg-white/45 backdrop-blur-md p-1 rounded-2xl border border-white/55 shadow-xs gap-1 w-full">
+              <div className="grid grid-cols-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-3xs gap-1 w-full">
                 <button
                   onClick={() => setActiveMobileColumn('specific')}
-                  className={`py-2 px-1 rounded-xl text-[10px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1 active:scale-[0.98] ${
+                  className={`py-2.5 px-1 rounded-xl text-[10.5px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] ${
                     activeMobileColumn === 'specific'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:bg-white/40 hover:text-slate-700'
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-1 min-w-0">
-                    <Bookmark className="w-3 h-3 min-[360px]:w-3.5 min-[360px]:h-3.5 shrink-0" />
-                    <span className="truncate">Direct Tasks</span>
+                  <div className="flex items-center gap-1 shrink-0 min-w-0">
+                    <Bookmark className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Direct</span>
                   </div>
-                  <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded-md ${
+                  <span className={`text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded-full ${
                     activeMobileColumn === 'specific'
                       ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-600'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200/50'
                   }`}>
                     {activeTabProgressObject.categories.specific.completed}/{activeTabProgressObject.categories.specific.total}
                   </span>
@@ -1098,20 +1092,20 @@ export default function App() {
                 
                 <button
                   onClick={() => setActiveMobileColumn('my_post')}
-                  className={`py-2 px-1 rounded-xl text-[10px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1 active:scale-[0.98] ${
+                  className={`py-2.5 px-1 rounded-xl text-[10.5px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] ${
                     activeMobileColumn === 'my_post'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:bg-white/40 hover:text-slate-700'
+                      ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-1 min-w-0">
-                    <FileText className="w-3 h-3 min-[360px]:w-3.5 min-[360px]:h-3.5 shrink-0" />
+                  <div className="flex items-center gap-1 shrink-0 min-w-0">
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">My Posts</span>
                   </div>
-                  <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded-md ${
+                  <span className={`text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded-full ${
                     activeMobileColumn === 'my_post'
                       ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-600'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200/50'
                   }`}>
                     {activeTabProgressObject.categories.my_post.completed}/{activeTabProgressObject.categories.my_post.total}
                   </span>
@@ -1119,20 +1113,20 @@ export default function App() {
 
                 <button
                   onClick={() => setActiveMobileColumn('group')}
-                  className={`py-2 px-1 rounded-xl text-[10px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1 active:scale-[0.98] ${
+                  className={`py-2.5 px-1 rounded-xl text-[10.5px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] ${
                     activeMobileColumn === 'group'
-                      ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:bg-white/40 hover:text-slate-700'
+                      ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-1 min-w-0">
-                    <Users className="w-3 h-3 min-[360px]:w-3.5 min-[360px]:h-3.5 shrink-0" />
+                  <div className="flex items-center gap-1 shrink-0 min-w-0">
+                    <Users className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">My Group</span>
                   </div>
-                  <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded-md ${
+                  <span className={`text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded-full ${
                     activeMobileColumn === 'group'
                       ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-600'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200/50'
                   }`}>
                     {activeTabProgressObject.categories.group.completed}/{activeTabProgressObject.categories.group.total}
                   </span>
@@ -1142,20 +1136,20 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
               
               {/* Column 1: Specific Post Links (COL D) */}
-              <div className={`flex-col bg-white/45 backdrop-blur-md rounded-3xl border border-white/55 p-5 min-h-[420px] ${
+              <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
                 activeMobileColumn === 'specific' ? 'flex' : 'hidden lg:flex'
               }`}>
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200/40">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <h2 className="font-bold text-xs text-slate-600 uppercase tracking-widest">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse-slow" />
+                    <h2 className="font-extrabold text-[11px] text-slate-500 uppercase tracking-widest">
                       Direct Post Links
                     </h2>
-                    <span className="bg-blue-100/50 text-blue-700 text-[10.5px] font-bold rounded-full px-2 py-0.5 border border-blue-200/30 font-mono">
+                    <span className="bg-blue-50 text-blue-700 text-[10.5px] font-extrabold rounded-full px-2.5 py-0.5 border border-blue-100 font-mono">
                       {activeTabProgressObject.categories.specific.completed}/{activeTabProgressObject.categories.specific.total}
                     </span>
                   </div>
-                  <span className="bg-blue-50/70 text-blue-700 text-[10px] font-sans font-bold px-2 py-0.5 rounded border border-blue-105">
+                  <span className="bg-blue-50/50 text-blue-700 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded border border-blue-100/40">
                     Direct
                   </span>
                 </div>
@@ -1197,20 +1191,20 @@ export default function App() {
               </div>
 
               {/* Column 2: My Post Links (COL C) */}
-              <div className={`flex-col bg-white/45 backdrop-blur-md rounded-3xl border border-white/55 p-5 min-h-[420px] ${
+              <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
                 activeMobileColumn === 'my_post' ? 'flex' : 'hidden lg:flex'
               }`}>
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200/40">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse" />
-                    <h2 className="font-bold text-xs text-slate-600 uppercase tracking-widest">
+                    <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse-slow" />
+                    <h2 className="font-extrabold text-[11px] text-slate-500 uppercase tracking-widest">
                       My Group Posts
                     </h2>
-                    <span className="bg-sky-100/50 text-sky-700 text-[10.5px] font-bold rounded-full px-2 py-0.5 border border-sky-200/30 font-mono">
+                    <span className="bg-sky-50 text-sky-700 text-[10.5px] font-extrabold rounded-full px-2.5 py-0.5 border border-sky-100 font-mono">
                       {activeTabProgressObject.categories.my_post.completed}/{activeTabProgressObject.categories.my_post.total}
                     </span>
                   </div>
-                  <span className="bg-sky-50/70 text-sky-850 text-[10px] font-sans font-bold px-2 py-0.5 rounded border border-sky-105">
+                  <span className="bg-sky-50/50 text-sky-700 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded border border-sky-100/40">
                     Shared
                   </span>
                 </div>
@@ -1252,20 +1246,20 @@ export default function App() {
               </div>
 
               {/* Column 3: Group Links Only (COL B) */}
-              <div className={`flex-col bg-white/45 backdrop-blur-md rounded-3xl border border-white/55 p-5 min-h-[420px] ${
+              <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
                 activeMobileColumn === 'group' ? 'flex' : 'hidden lg:flex'
               }`}>
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200/40">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-                    <h2 className="font-bold text-xs text-slate-600 uppercase tracking-widest">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse-slow" />
+                    <h2 className="font-extrabold text-[11px] text-slate-500 uppercase tracking-widest">
                       My Group
                     </h2>
-                    <span className="bg-purple-100/50 text-purple-700 text-[10.5px] font-bold rounded-full px-3 py-0.5 border border-purple-200/30 font-mono">
+                    <span className="bg-purple-50 text-purple-700 text-[10.5px] font-extrabold rounded-full px-2.5 py-0.5 border border-purple-100 font-mono">
                       {activeTabProgressObject.categories.group.completed}/{activeTabProgressObject.categories.group.total}
                     </span>
                   </div>
-                  <span className="bg-purple-50/70 text-purple-800 text-[10px] font-sans font-bold px-2 py-0.5 rounded border border-purple-105">
+                  <span className="bg-purple-50/50 text-purple-700 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded border border-purple-100/40">
                     Group Info
                   </span>
                 </div>
