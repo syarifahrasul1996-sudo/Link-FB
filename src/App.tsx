@@ -738,11 +738,13 @@ export default function App() {
   }, [tabs, selectedTabId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-150 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-150 flex flex-col font-sans relative">
       
-      {/* Decorative ambient glass circles */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-300/10 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-300/10 blur-[140px] pointer-events-none" />
+      {/* Decorative ambient glass circles inside a clipped wrapper to prevent horizontal scrollbars while keeping header sticky */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-300/10 blur-[130px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-300/10 blur-[140px]" />
+      </div>
 
       {/* HEADER BAR */}
       <header className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-3xs z-40">
@@ -770,7 +772,7 @@ export default function App() {
           </div>
 
           {/* Flexible and Full-width Account Switcher Dropdown */}
-          <div className="flex-1 max-w-[280px] xs:max-w-xs sm:max-w-sm md:max-w-md relative">
+          <div className="flex-1 min-w-0 relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -792,7 +794,7 @@ export default function App() {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute right-0 left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden w-full max-h-[290px] overflow-y-auto">
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 animate-fade-in divide-y divide-slate-100 overflow-hidden max-h-[290px] overflow-y-auto">
                 <div className="px-3.5 py-1 text-[8.5px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-50/50">
                   Switch Active Account
                 </div>
