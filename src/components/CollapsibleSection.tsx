@@ -208,9 +208,6 @@ export default function CollapsibleSection({
                         case 'specific':
                           styleClass = 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-150/70 text-blue-700 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300';
                           break;
-                        case 'my_post':
-                          styleClass = 'bg-gradient-to-br from-sky-50 to-cyan-50 border-sky-150/70 text-sky-700 hover:from-sky-100 hover:to-cyan-100 hover:border-sky-300';
-                          break;
                         case 'group':
                         default:
                           styleClass = 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-150/70 text-purple-700 hover:from-purple-100 hover:to-indigo-100 hover:border-purple-300';
@@ -255,19 +252,12 @@ export default function CollapsibleSection({
                           <span className={`text-[9.5px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                             currentSelectedItem.category === 'specific' 
                               ? 'bg-blue-100/70 text-blue-800 border border-blue-200/50' 
-                              : currentSelectedItem.category === 'my_post'
-                                ? 'bg-sky-100/70 text-sky-850 border border-sky-200/50'
-                                : 'bg-purple-100/70 text-purple-800 border border-purple-200/50'
+                              : 'bg-purple-100/70 text-purple-800 border border-purple-200/50'
                           }`}>
                             {currentSelectedItem.category === 'specific' ? (
                               <>
                                 <Bookmark className="w-2.5 h-2.5" />
                                 Direct Task
-                              </>
-                            ) : currentSelectedItem.category === 'my_post' ? (
-                              <>
-                                <FileText className="w-2.5 h-2.5" />
-                                My Post
                               </>
                             ) : (
                               <>

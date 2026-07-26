@@ -50,8 +50,6 @@ export default function FBItemCard({
     switch (item.category) {
       case 'specific':
         return 'bg-blue-50 border-blue-100/80 hover:bg-blue-100 hover:border-blue-200 hover:shadow-xs';
-      case 'my_post':
-        return 'bg-sky-50 border-sky-100/80 hover:bg-sky-100 hover:border-sky-200 hover:shadow-xs';
       case 'group':
       default:
         return 'bg-purple-50 border-purple-100/80 hover:bg-purple-100 hover:border-purple-200 hover:shadow-xs';
@@ -63,8 +61,6 @@ export default function FBItemCard({
     switch (item.category) {
       case 'specific':
         return 'bg-blue-500';
-      case 'my_post':
-        return 'bg-sky-500';
       case 'group':
       default:
         return 'bg-purple-500';

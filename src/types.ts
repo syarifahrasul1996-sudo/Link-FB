@@ -10,9 +10,9 @@ export interface FacebookItem {
   id: string; // unique row id (e.g. `${tabId}-${index}`)
   label: string; // Column A: Button label
   groupLink: string; // Column B: Facebook group link
-  groupPostLink: string; // Column C: My post link in that group
-  specificPostLink: string; // Column D: My specific post link
-  category: 'specific' | 'my_post' | 'group'; // computed category
+  groupPostLink?: string; // Optional legacy field
+  specificPostLink: string; // Column C: Direct task / specific post link
+  category: 'specific' | 'group'; // computed category
   targetUrl: string; // computed target link to launch
   deepLinkUrl: string; // computed facebook App deep link URL
   isLabelOnly?: boolean; // true if no valid URL exists for the row
@@ -24,7 +24,6 @@ export interface AccountProgress {
   percentage: number;
   categories: {
     specific: { total: number; completed: number };
-    my_post: { total: number; completed: number };
     group: { total: number; completed: number };
   };
 }

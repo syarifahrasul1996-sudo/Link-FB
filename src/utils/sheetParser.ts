@@ -85,8 +85,7 @@ export function getGoogleSheetDownloadUrl(urlOrId: string, gid: string): string 
  * Columns:
  * Column A: Button label
  * Column B: Facebook group link
- * Column C: My post link in that group
- * Column D: My specific post link
+ * Column C: Direct tasks / specific post link
  */
 export function transformRowsToItems(rows: string[][], tabId: string): FacebookItem[] {
   if (rows.length === 0) return [];
@@ -95,12 +94,12 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
   let startIndex = 0;
   const firstRow = rows[0];
   
-  // If first row looks like headers (none of B, C, D looks like a facebook/web link or Column A is literally headers)
+  // If first row looks like headers (none of B, C looks like a facebook/web link or Column A is literally headers)
   const isHeader = (
     firstRow[0]?.toLowerCase().includes('label') ||
     firstRow[0]?.toLowerCase().includes('button') ||
     firstRow[0]?.toLowerCase().includes('name') ||
-    (!firstRow[1]?.startsWith('http') && !firstRow[2]?.startsWith('http') && !firstRow[3]?.startsWith('http'))
+    (!firstRow[1]?.startsWith('http') && !firstRow[2]?.startsWith('http'))
   );
   
   if (isHeader) {
@@ -114,8 +113,7 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
     // Ensure we have enough columns, default to blank for missing columns
     const label = row[0] || '';
     const groupLink = row[1] || '';
-    const groupPostLink = row[2] || '';
-    const specificPostLink = row[3] || '';
+    const specificPostLink = row[2] || '';
     
     // An item must at least have a label to be rendered
     if (!label.trim()) {
@@ -124,7 +122,7 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
 
     // Helper to create an item
     const createItem = (
-      category: 'specific' | 'my_post' | 'group', 
+      category: 'specific' | 'group', 
       url: string, 
       suffix: string,
       isLabelOnly = false
@@ -138,7 +136,6 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
         id: `${tabId}-row-${i}-${suffix}`,
         label: label.trim(),
         groupLink: groupLink.trim(),
-        groupPostLink: groupPostLink.trim(),
         specificPostLink: specificPostLink.trim(),
         category,
         targetUrl,
@@ -149,10 +146,10 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
     
     // Create items based on priority and user requirements
     if (isUrlValid(specificPostLink)) {
-      // If it has a direct specific task, it goes to that column only
+      // Column C has direct task / specific post link -> goes to 'specific' (Direct)
       items.push(createItem('specific', specificPostLink, 'specific'));
     } else {
-      // If it DOES NOT have a direct specific task, it must be listed in "My Group" column (Category: group)
+      // Column C is empty -> goes to 'group' (My Group)
       const hasGroupLink = isUrlValid(groupLink);
       items.push(createItem(
         'group', 
@@ -160,11 +157,6 @@ export function transformRowsToItems(rows: string[][], tabId: string): FacebookI
         'group', 
         !hasGroupLink
       ));
-      
-      // If it also has a group post link, it also appears in "My Group Posts" (Category: my_post)
-      if (isUrlValid(groupPostLink)) {
-        items.push(createItem('my_post', groupPostLink, 'mypost'));
-      }
     }
   }
   

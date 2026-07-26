@@ -250,7 +250,7 @@ export default function App() {
   };
 
   // Mobile column active tab state
-  const [activeMobileColumn, setActiveMobileColumn] = useState<'specific' | 'my_post' | 'group'>('specific');
+  const [activeMobileColumn, setActiveMobileColumn] = useState<'specific' | 'group'>('specific');
 
   // Multi-dropdown handler to close custom select on document click
   useEffect(() => {
@@ -634,7 +634,6 @@ export default function App() {
     const raw = rawItemsForActiveTab;
 
     const specific: FacebookItem[] = [];
-    const my_post: FacebookItem[] = [];
     const group: FacebookItem[] = [];
 
     raw.forEach(item => {
@@ -650,19 +649,16 @@ export default function App() {
 
       if (targetItem.category === 'specific') {
         specific.push(targetItem);
-      } else if (targetItem.category === 'my_post') {
-        my_post.push(targetItem);
-      } else if (targetItem.category === 'group') {
+      } else {
         group.push(targetItem);
       }
     });
 
     const alphaSort = (a: FacebookItem, b: FacebookItem) => a.label.localeCompare(b.label);
     specific.sort(alphaSort);
-    my_post.sort(alphaSort);
     group.sort(alphaSort);
 
-    return { specific, my_post, group };
+    return { specific, group };
   }, [rawItemsForActiveTab, urlOverrides]);
 
   // --- Filter the categorized items for live searching ---
@@ -672,7 +668,6 @@ export default function App() {
 
     return {
       specific: filter(categorizedItems.specific),
-      my_post: filter(categorizedItems.my_post),
       group: filter(categorizedItems.group)
     };
   }, [categorizedItems, searchQuery]);
@@ -687,11 +682,8 @@ export default function App() {
     const specificTotal = activeItems.filter(item => item.category === 'specific').length;
     const specificCompleted = activeItems.filter(item => item.category === 'specific' && completedIds.has(item.id)).length;
 
-    const myPostTotal = activeItems.filter(item => item.category === 'my_post').length;
-    const myPostCompleted = activeItems.filter(item => item.category === 'my_post' && completedIds.has(item.id)).length;
-
-    const total = groupTotal + specificTotal + myPostTotal;
-    const completed = groupCompleted + specificCompleted + myPostCompleted;
+    const total = groupTotal + specificTotal;
+    const completed = groupCompleted + specificCompleted;
     const percentage = total > 0 ? (completed / total) * 100 : 0;
 
     return {
@@ -700,7 +692,6 @@ export default function App() {
       percentage,
       categories: {
         specific: { total: specificTotal, completed: specificCompleted },
-        my_post: { total: myPostTotal, completed: myPostCompleted },
         group: { total: groupTotal, completed: groupCompleted }
       }
     };
@@ -720,11 +711,8 @@ export default function App() {
       const specificTotal = activeItems.filter(item => item.category === 'specific').length;
       const specificCompleted = activeItems.filter(item => item.category === 'specific' && completedIds.has(item.id)).length;
 
-      const myPostTotal = activeItems.filter(item => item.category === 'my_post').length;
-      const myPostCompleted = activeItems.filter(item => item.category === 'my_post' && completedIds.has(item.id)).length;
-
-      const total = groupTotal + specificTotal + myPostTotal;
-      const completed = groupCompleted + specificCompleted + myPostCompleted;
+      const total = groupTotal + specificTotal;
+      const completed = groupCompleted + specificCompleted;
       const percentage = total > 0 ? (completed / total) * 100 : 0;
       
       rawMap[tab.id] = { total, completed, percentage };
@@ -1027,7 +1015,7 @@ export default function App() {
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">
                 Show task types
               </span>
-              <div className="grid grid-cols-3 bg-white p-1 rounded-2xl border border-slate-200 shadow-3xs gap-1 w-full">
+              <div className="grid grid-cols-2 bg-white p-1 rounded-2xl border border-slate-200 shadow-3xs gap-1 w-full">
                 <button
                   onClick={() => setActiveMobileColumn('specific')}
                   className={`py-2.5 px-1 rounded-xl text-[10.5px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] ${
@@ -1038,7 +1026,7 @@ export default function App() {
                 >
                   <div className="flex items-center gap-1 shrink-0 min-w-0">
                     <Bookmark className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Direct</span>
+                    <span className="truncate">Direct Tasks</span>
                   </div>
                   <span className={`text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded-full ${
                     activeMobileColumn === 'specific'
@@ -1046,27 +1034,6 @@ export default function App() {
                       : 'bg-slate-100 text-slate-500 border border-slate-200/50'
                   }`}>
                     {activeTabProgressObject.categories.specific.completed}/{activeTabProgressObject.categories.specific.total}
-                  </span>
-                </button>
-                
-                <button
-                  onClick={() => setActiveMobileColumn('my_post')}
-                  className={`py-2.5 px-1 rounded-xl text-[10.5px] min-[360px]:text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] ${
-                    activeMobileColumn === 'my_post'
-                      ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-1 shrink-0 min-w-0">
-                    <FileText className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">My Posts</span>
-                  </div>
-                  <span className={`text-[9.5px] font-mono font-extrabold px-1.5 py-0.5 rounded-full ${
-                    activeMobileColumn === 'my_post'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-100 text-slate-500 border border-slate-200/50'
-                  }`}>
-                    {activeTabProgressObject.categories.my_post.completed}/{activeTabProgressObject.categories.my_post.total}
                   </span>
                 </button>
 
@@ -1091,10 +1058,12 @@ export default function App() {
                   </span>
                 </button>
               </div>
-            </div>            {/* Bento Categories Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+            </div>
+
+            {/* Bento Categories Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
               
-              {/* Column 1: Specific Post Links (COL D) */}
+              {/* Column 1: Direct Post Links / Tasks (COL C) */}
               <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
                 activeMobileColumn === 'specific' ? 'flex' : 'hidden lg:flex'
               }`}>
@@ -1149,62 +1118,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Column 2: My Post Links (COL C) */}
-              <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
-                activeMobileColumn === 'my_post' ? 'flex' : 'hidden lg:flex'
-              }`}>
-                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse-slow" />
-                    <h2 className="font-extrabold text-[11px] text-slate-500 uppercase tracking-widest">
-                      My Group Posts
-                    </h2>
-                    <span className="bg-sky-50 text-sky-700 text-[10.5px] font-extrabold rounded-full px-2.5 py-0.5 border border-sky-100 font-mono">
-                      {activeTabProgressObject.categories.my_post.completed}/{activeTabProgressObject.categories.my_post.total}
-                    </span>
-                  </div>
-                  <span className="bg-sky-50/50 text-sky-700 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded border border-sky-100/40">
-                    Shared
-                  </span>
-                </div>
-                
-                <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[600px] lg:max-h-[850px] min-h-[140px]">
-                  <AnimatePresence initial={false}>
-                    {filteredCategorizedItems.my_post.length > 0 ? (
-                      getSectionChunks(categorizedItems.my_post, filteredCategorizedItems.my_post, 'my_post', completedIds).map((chunk, index, arr) => (
-                        <CollapsibleSection
-                          key={chunk.key}
-                          sectionKey={chunk.key}
-                          sectionIndex={chunk.sectionIndex}
-                          items={chunk.items}
-                          startIndex={chunk.startIndex}
-                          endIndex={chunk.endIndex}
-                          completedIds={completedIds}
-                          onToggleComplete={handleToggleComplete}
-                          onEdit={handleEdit}
-                          onDelete={handleDeleteItem}
-                          deepLinkMode={deepLinkMode}
-                          isLastSection={index === arr.length - 1}
-                        />
-                      ))
-                    ) : (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="p-8 text-center bg-white/55 border border-white/50 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center text-slate-400 py-12"
-                      >
-                        <FileText className="w-8 h-8 text-slate-300 stroke-[1.2] mb-2" />
-                        <span className="text-xs font-semibold text-slate-500">No group posts found</span>
-                        <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] leading-normal">
-                          {searchQuery ? `No matches found for "${searchQuery}"` : "This column is empty on selected account"}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Column 3: Group Links Only (COL B) */}
+              {/* Column 2: Group Links Only (COL B) */}
               <div className={`flex-col bg-white rounded-3xl border border-slate-200/80 p-5.5 shadow-xs min-h-[420px] transition-all duration-300 hover:shadow-sm ${
                 activeMobileColumn === 'group' ? 'flex' : 'hidden lg:flex'
               }`}>

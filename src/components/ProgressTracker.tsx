@@ -18,11 +18,9 @@ export default function ProgressTracker({
 }: ProgressTrackerProps) {
   
   const specificItems = items.filter(item => item.category === 'specific');
-  const myPostItems = items.filter(item => item.category === 'my_post');
   const groupItems = items.filter(item => item.category === 'group');
 
   const activeSpecificCompleted = specificItems.filter(item => completedIds.has(item.id)).length;
-  const activeMyPostCompleted = myPostItems.filter(item => completedIds.has(item.id)).length;
   const activeGroupCompleted = groupItems.filter(item => completedIds.has(item.id)).length;
 
   const totalProgressPercentage = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
@@ -30,7 +28,6 @@ export default function ProgressTracker({
 
   // Percentage metrics for subcategories
   const specificPercentage = specificItems.length > 0 ? (activeSpecificCompleted / specificItems.length) * 100 : 0;
-  const myPostPercentage = myPostItems.length > 0 ? (activeMyPostCompleted / myPostItems.length) * 100 : 0;
   const groupPercentage = groupItems.length > 0 ? (activeGroupCompleted / groupItems.length) * 100 : 0;
 
   return (
