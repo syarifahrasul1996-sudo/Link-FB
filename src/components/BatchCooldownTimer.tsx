@@ -221,3 +221,141 @@ export default function BatchCooldownTimer({
     </AnimatePresence>
   );
 }
+
+interface FloatingCooldownPillProps {
+  cooldown?: AccountCooldown;
+  nowTimestamp: number;
+  justHitMilestone: number | null;
+  onDismiss: () => void;
+  onScrollToTop: () => void;
+}
+
+export function FloatingCooldownPill({
+  cooldown,
+  nowTimestamp,
+  justHitMilestone,
+  onDismiss,
+  onScrollToTop,
+}: FloatingCooldownPillProps) {
+  const remainingMs = cooldown ? Math.max(0, cooldown.endTime - nowTimestamp) : 0;
+  const isActive = cooldown?.status === 'active' && remainingMs > 0;
+  const isFinished = cooldown?.status === 'finished' || (cooldown?.status === 'active' && remainingMs === 0);
+
+  if (!cooldown || (!isActive && !isFinished)) {
+    return null;
+  }
+
+  const isHighlighted = justHitMilestone !== null && isActive;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={isActive ? 'floating-active' : 'floating-finished'}
+        initial={{ opacity: 0, y: 24, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.92 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+        className="fixed bottom-5 left-4 sm:left-6 z-[95] max-w-[calc(100vw-6rem)]"
+      >
+        {isActive ? (
+          <div
+            onClick={onScrollToTop}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onScrollToTop();
+            }}
+            title="Click to jump to timer details"
+            className={`flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-2xl border backdrop-blur-md shadow-lg cursor-pointer transition-all select-none ${
+              isHighlighted
+                ? 'bg-amber-500 text-white border-amber-400 ring-4 ring-amber-400/40 shadow-amber-500/25'
+                : 'bg-amber-50/95 hover:bg-amber-100/95 text-amber-950 border-amber-300/90 shadow-amber-900/10'
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                isHighlighted ? 'bg-white/20 text-white' : 'bg-amber-500 text-white'
+              }`}
+            >
+              <Timer className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+
+            <div className="flex flex-col min-w-0 leading-tight">
+              <span
+                className={`text-[9.5px] font-extrabold uppercase tracking-wider truncate ${
+                  isHighlighted ? 'text-amber-50' : 'text-amber-700'
+                }`}
+              >
+                {isHighlighted
+                  ? `${justHitMilestone} Links Reached! Break Started`
+                  : `${cooldown.milestone} Done • Break Active`}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-sm font-extrabold tabular-nums tracking-tight">
+                  {formatMillisecondsToCountdown(remainingMs)}
+                </span>
+                <span
+                  className={`text-[9.5px] font-semibold hidden xs:inline ${
+                    isHighlighted ? 'text-amber-100' : 'text-amber-700/80'
+                  }`}
+                >
+                  &middot; {formatMalaysiaTime(cooldown.endTime)}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className={`p-1.5 rounded-xl transition-colors cursor-pointer shrink-0 ${
+                isHighlighted
+                  ? 'hover:bg-white/20 text-white/90 hover:text-white'
+                  : 'hover:bg-amber-200/70 text-amber-700 hover:text-red-600'
+              }`}
+              title="Dismiss countdown"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={onScrollToTop}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onScrollToTop();
+            }}
+            className="flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-2xl border bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-600/20 ring-4 ring-emerald-400/25 cursor-pointer transition-all select-none"
+          >
+            <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col min-w-0 leading-tight">
+              <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-emerald-100">
+                1h 30m Break Complete
+              </span>
+              <span className="text-xs font-bold truncate">
+                Ready for next 25 links!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className="p-1.5 rounded-xl hover:bg-white/20 text-white/90 hover:text-white transition-colors cursor-pointer shrink-0"
+              title="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+

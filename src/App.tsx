@@ -9,7 +9,7 @@ import EditLinkModal from './components/EditLinkModal';
 import SettingsPanel from './components/SettingsPanel';
 // import DiagnosticPanel from './components/DiagnosticPanel';
 import CollapsibleSection from './components/CollapsibleSection';
-import BatchCooldownTimer, { COOLDOWN_DURATION_MS, BATCH_SIZE } from './components/BatchCooldownTimer';
+import BatchCooldownTimer, { FloatingCooldownPill, COOLDOWN_DURATION_MS, BATCH_SIZE } from './components/BatchCooldownTimer';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeLoadFromStorage } from './utils/localStorageHelper';
 
@@ -165,6 +165,10 @@ export default function App() {
     );
   });
 
+  // Temporary milestone pop state (6 seconds) to draw attention when hitting 25, 50, 75...
+  const [justHitMilestone, setJustHitMilestone] = useState<number | null>(null);
+  const milestoneTimeoutRef = useRef<number | null>(null);
+
   // Cached spreadsheet parsed data
   const [liveTabItems, setLiveTabItems] = useState<Record<string, FacebookItem[]>>({});
   const [editingItem, setEditingItem] = useState<FacebookItem | null>(null);
@@ -180,6 +184,9 @@ export default function App() {
       isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (milestoneTimeoutRef.current !== null) {
+        window.clearTimeout(milestoneTimeoutRef.current);
       }
     };
   }, []);
@@ -410,9 +417,22 @@ export default function App() {
       localStorage.setItem('fb_link_manager_cooldowns', JSON.stringify(next));
       return next;
     });
+
+    if (milestoneTimeoutRef.current !== null) {
+      window.clearTimeout(milestoneTimeoutRef.current);
+    }
+    setJustHitMilestone(milestone);
+    milestoneTimeoutRef.current = window.setTimeout(() => {
+      setJustHitMilestone(null);
+    }, 6000);
   };
 
   const dismissCooldownForTab = (tabId: string) => {
+    setJustHitMilestone(null);
+    if (milestoneTimeoutRef.current !== null) {
+      window.clearTimeout(milestoneTimeoutRef.current);
+      milestoneTimeoutRef.current = null;
+    }
     setAccountCooldowns(prev => {
       if (!prev[tabId]) return prev;
       const next = { ...prev };
@@ -836,17 +856,59 @@ export default function App() {
     return tabs.find(t => t.id === selectedTabId)?.name || 'Selected Tab';
   }, [tabs, selectedTabId]);
 
+  const activeCooldown = accountCooldowns[selectedTabId];
+  const isActiveTabInCooldown = Boolean(
+    activeCooldown && activeCooldown.status === 'active' && activeCooldown.endTime > nowTimestamp
+  );
+  const isActiveTabCooldownFinished = Boolean(
+    activeCooldown &&
+      (activeCooldown.status === 'finished' ||
+        (activeCooldown.status === 'active' && activeCooldown.endTime <= nowTimestamp))
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-150 flex flex-col font-sans relative">
+    <div
+      className={`min-h-screen flex flex-col font-sans relative transition-colors duration-500 ${
+        isActiveTabInCooldown
+          ? 'bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/80'
+          : isActiveTabCooldownFinished
+          ? 'bg-gradient-to-br from-emerald-50 via-teal-50/60 to-emerald-100/70'
+          : 'bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-150'
+      }`}
+    >
       
       {/* Decorative ambient glass circles inside a clipped wrapper to prevent horizontal scrollbars while keeping header sticky */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-300/10 blur-[130px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-300/10 blur-[140px]" />
+        <div
+          className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[130px] transition-colors duration-500 ${
+            isActiveTabInCooldown
+              ? 'bg-amber-300/25'
+              : isActiveTabCooldownFinished
+              ? 'bg-emerald-300/25'
+              : 'bg-blue-300/10'
+          }`}
+        />
+        <div
+          className={`absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full blur-[140px] transition-colors duration-500 ${
+            isActiveTabInCooldown
+              ? 'bg-orange-300/20'
+              : isActiveTabCooldownFinished
+              ? 'bg-teal-300/20'
+              : 'bg-indigo-300/10'
+          }`}
+        />
       </div>
 
       {/* HEADER BAR */}
-      <header className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-3xs z-40">
+      <header
+        className={`sticky top-0 backdrop-blur-md border-b shadow-3xs z-40 transition-colors duration-500 ${
+          isActiveTabInCooldown
+            ? 'bg-amber-50/90 border-amber-200/80'
+            : isActiveTabCooldownFinished
+            ? 'bg-emerald-50/90 border-emerald-200/80'
+            : 'bg-white/90 border-slate-200/80'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           
           {/* Left corner: Logo Title section */}
@@ -1330,6 +1392,15 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* FLOATING COOLDOWN PILL (stays visible while scrolling) */}
+      <FloatingCooldownPill
+        cooldown={accountCooldowns[selectedTabId]}
+        nowTimestamp={nowTimestamp}
+        justHitMilestone={justHitMilestone}
+        onDismiss={() => dismissCooldownForTab(selectedTabId)}
+        onScrollToTop={scrollToTop}
+      />
 
       {/* BACK TO TOP BUTTON */}
       <AnimatePresence>
