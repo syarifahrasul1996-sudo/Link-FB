@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { TabConfig, FacebookItem, AccountProgress, DiagnosticInfo } from './types';
+import { TabConfig, FacebookItem, AccountProgress, DiagnosticInfo, AccountCooldown } from './types';
 import { DEFAULT_SHEET_URL, DEFAULT_TABS, MOCK_DATA_BY_TAB } from './mockData';
 import { parseCSV, getGoogleSheetDownloadUrl, transformRowsToItems } from './utils/sheetParser';
 import { getMalaysiaDateString, getMsUntilMalaysiaMidnight, formatMillisecondsToCountdown } from './utils/timezone';
@@ -9,6 +9,7 @@ import EditLinkModal from './components/EditLinkModal';
 import SettingsPanel from './components/SettingsPanel';
 // import DiagnosticPanel from './components/DiagnosticPanel';
 import CollapsibleSection from './components/CollapsibleSection';
+import BatchCooldownTimer, { COOLDOWN_DURATION_MS, BATCH_SIZE } from './components/BatchCooldownTimer';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeLoadFromStorage } from './utils/localStorageHelper';
 
@@ -127,8 +128,42 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Current Malaysia Date for display
+  // Current Malaysia Date and live epoch timestamp for countdowns
   const [malaysiaDateStr, setMalaysiaDateStr] = useState(getMalaysiaDateString());
+  const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
+
+  // Per-account 1.5-hour cooldown timers (persisted across refreshes)
+  const [accountCooldowns, setAccountCooldowns] = useState<Record<string, AccountCooldown>>(() => {
+    return safeLoadFromStorage<Record<string, AccountCooldown>>(
+      'fb_link_manager_cooldowns',
+      {},
+      (data) =>
+        data !== null &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        Object.values(data).every(
+          (v: any) =>
+            v &&
+            typeof v === 'object' &&
+            typeof v.endTime === 'number' &&
+            typeof v.milestone === 'number' &&
+            (v.status === 'active' || v.status === 'finished')
+        )
+    );
+  });
+
+  // Highest 25-link milestone that auto-triggered a cooldown per account today
+  const [lastTriggeredMilestones, setLastTriggeredMilestones] = useState<Record<string, number>>(() => {
+    return safeLoadFromStorage<Record<string, number>>(
+      'fb_link_manager_last_milestones',
+      {},
+      (data) =>
+        data !== null &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        Object.values(data).every((v: any) => typeof v === 'number')
+    );
+  });
 
   // Cached spreadsheet parsed data
   const [liveTabItems, setLiveTabItems] = useState<Record<string, FacebookItem[]>>({});
@@ -285,6 +320,7 @@ export default function App() {
 
     const timer = setInterval(() => {
       const d = new Date();
+      setNowTimestamp(Date.now());
       const tdMalaysia = getMalaysiaDateString();
       setMalaysiaDateStr(tdMalaysia);
       
@@ -313,9 +349,11 @@ export default function App() {
 - Cleared Completed IDs state and updated stored reset date.
 `, "color: #ea580c; font-weight: bold; background-color: #ffedd5; padding: 4px;");
 
-        // Midnight Malaysia Time hit! Reset completed items (checkmarks).
+        // Midnight Malaysia Time hit! Reset completed items (checkmarks) and daily batch milestones.
         setCompletedIds(new Set());
         localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify([]));
+        setLastTriggeredMilestones({});
+        localStorage.setItem('fb_link_manager_last_milestones', JSON.stringify({}));
         
         // DO NOT reset completedSectionsOrder here so the order is remembered across days.
         
@@ -332,6 +370,27 @@ export default function App() {
     };
   }, []);
 
+  // Automatically transition expired active cooldowns to 'finished'
+  useEffect(() => {
+    const expiredTabIds = Object.keys(accountCooldowns).filter((tabId) => {
+      const cd = accountCooldowns[tabId];
+      return cd && cd.status === 'active' && cd.endTime <= nowTimestamp;
+    });
+
+    if (expiredTabIds.length > 0) {
+      setAccountCooldowns(prev => {
+        const next = { ...prev };
+        expiredTabIds.forEach(tabId => {
+          if (next[tabId] && next[tabId].status === 'active') {
+            next[tabId] = { ...next[tabId], status: 'finished' };
+          }
+        });
+        localStorage.setItem('fb_link_manager_cooldowns', JSON.stringify(next));
+        return next;
+      });
+    }
+  }, [nowTimestamp, accountCooldowns]);
+
   // --- Save / Fetch Handlers ---
   const saveCompletedIdsToStorage = (updatedSet: Set<string>) => {
     localStorage.setItem('fb_link_manager_completed_ids', JSON.stringify(Array.from(updatedSet)));
@@ -339,6 +398,28 @@ export default function App() {
 
   const saveCompletedSectionsOrderToStorage = (updatedOrder: string[]) => {
     localStorage.setItem('fb_link_manager_completed_sections_order', JSON.stringify(updatedOrder));
+  };
+
+  const startCooldownForTab = (tabId: string, milestone: number) => {
+    const endTime = Date.now() + COOLDOWN_DURATION_MS;
+    setAccountCooldowns(prev => {
+      const next: Record<string, AccountCooldown> = {
+        ...prev,
+        [tabId]: { endTime, milestone, status: 'active' }
+      };
+      localStorage.setItem('fb_link_manager_cooldowns', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const dismissCooldownForTab = (tabId: string) => {
+    setAccountCooldowns(prev => {
+      if (!prev[tabId]) return prev;
+      const next = { ...prev };
+      delete next[tabId];
+      localStorage.setItem('fb_link_manager_cooldowns', JSON.stringify(next));
+      return next;
+    });
   };
 
   // Persist direct preferences and selections
@@ -576,8 +657,9 @@ export default function App() {
     const rawItems = liveTabItems[selectedTabId] || [];
     const items = rawItems.filter(item => !deletedItemIds.has(item.id));
     const itemToToggle = items.find(item => item.id === id);
+    const wasCompleted = updated.has(id);
 
-    if (updated.has(id)) {
+    if (wasCompleted) {
       updated.delete(id);
     } else {
       updated.add(id);
@@ -585,6 +667,35 @@ export default function App() {
     
     setCompletedIds(updated);
     saveCompletedIdsToStorage(updated);
+
+    // Check 25-link batch milestone for the 1.5-hour cooldown countdown
+    const nextCompletedCount = items.filter(item => updated.has(item.id)).length;
+    if (!wasCompleted) {
+      if (nextCompletedCount > 0 && nextCompletedCount % BATCH_SIZE === 0) {
+        const prevMilestone = lastTriggeredMilestones[selectedTabId] || 0;
+        if (nextCompletedCount > prevMilestone) {
+          startCooldownForTab(selectedTabId, nextCompletedCount);
+          setLastTriggeredMilestones(prev => {
+            const next = { ...prev, [selectedTabId]: nextCompletedCount };
+            localStorage.setItem('fb_link_manager_last_milestones', JSON.stringify(next));
+            return next;
+          });
+        }
+      } else if (accountCooldowns[selectedTabId]?.status === 'finished') {
+        // Clear finished break banner automatically when continuing to the next batch
+        dismissCooldownForTab(selectedTabId);
+      }
+    } else {
+      const prevMilestone = lastTriggeredMilestones[selectedTabId] || 0;
+      if (nextCompletedCount < prevMilestone) {
+        const adjustedMilestone = Math.floor(nextCompletedCount / BATCH_SIZE) * BATCH_SIZE;
+        setLastTriggeredMilestones(prev => {
+          const next = { ...prev, [selectedTabId]: adjustedMilestone };
+          localStorage.setItem('fb_link_manager_last_milestones', JSON.stringify(next));
+          return next;
+        });
+      }
+    }
 
     // If we just toggled an item, check if its section is now fully completed today
     if (itemToToggle) {
@@ -773,12 +884,24 @@ export default function App() {
               }`}
             >
               <div className="flex items-center gap-1.5 truncate">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 shadow-3xs animate-pulse" />
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 shadow-3xs animate-pulse ${
+                  accountCooldowns[selectedTabId]?.status === 'active' && accountCooldowns[selectedTabId].endTime > nowTimestamp
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`} />
                 <span className="truncate tracking-tight text-left">
                   {activeTabName}
                 </span>
               </div>
-              <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${dropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
+              <div className="flex items-center gap-1.5 shrink-0">
+                {accountCooldowns[selectedTabId]?.status === 'active' && accountCooldowns[selectedTabId].endTime > nowTimestamp && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-mono text-[9.5px] font-extrabold tabular-nums">
+                    <Clock className="w-2.5 h-2.5" />
+                    {formatMillisecondsToCountdown(accountCooldowns[selectedTabId].endTime - nowTimestamp)}
+                  </span>
+                )}
+                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${dropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
+              </div>
             </button>
 
             {dropdownOpen && (
@@ -789,6 +912,8 @@ export default function App() {
                 {tabs.map((tab) => {
                   const isSelected = tab.id === selectedTabId;
                   const progress = allTabsProgressInfo[tab.id];
+                  const tabCooldown = accountCooldowns[tab.id];
+                  const tabRemainingMs = tabCooldown?.status === 'active' ? Math.max(0, tabCooldown.endTime - nowTimestamp) : 0;
                   
                   return (
                     <button
@@ -811,9 +936,17 @@ export default function App() {
                           {tab.name}
                         </span>
                         
-                        {isSelected && (
-                          <Check className="w-3 h-3 text-blue-600 stroke-[3.5] shrink-0" />
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {tabRemainingMs > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-mono text-[9px] font-extrabold tabular-nums">
+                              <Clock className="w-2.5 h-2.5" />
+                              {formatMillisecondsToCountdown(tabRemainingMs)}
+                            </span>
+                          )}
+                          {isSelected && (
+                            <Check className="w-3 h-3 text-blue-600 stroke-[3.5] shrink-0" />
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between w-full">
                         {tabErrors[tab.id] ? (
@@ -954,6 +1087,16 @@ export default function App() {
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
               </div>
             </div>
+
+            {/* 1.5-Hour Batch Break Countdown Tracker (per 25 completed links) */}
+            <BatchCooldownTimer
+              accountName={activeTabName}
+              completedCount={activeTabProgressObject.completed}
+              cooldown={accountCooldowns[selectedTabId]}
+              nowTimestamp={nowTimestamp}
+              onStartCooldown={(milestone) => startCooldownForTab(selectedTabId, milestone)}
+              onDismissCooldown={() => dismissCooldownForTab(selectedTabId)}
+            />
 
             {/* TAB SPECIFIC FETCH ERRORS AND EMPTY WARNINGS */}
             {tabErrors[selectedTabId] && (

@@ -33,6 +33,12 @@ export interface AppSettings {
   tabs: TabConfig[];
 }
 
+export interface AccountCooldown {
+  endTime: number; // Epoch timestamp in ms when the 1.5-hour cooldown ends
+  milestone: number; // Completed link count milestone that triggered it (25, 50, 75, ...)
+  status: 'active' | 'finished';
+}
+
 export interface DiagnosticInfo {
   tabId: string;
   tabName: string;

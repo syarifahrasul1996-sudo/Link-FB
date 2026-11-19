@@ -84,3 +84,20 @@ export function formatMillisecondsToCountdown(ms: number): string {
     seconds.toString().padStart(2, '0')
   ].join(':');
 }
+
+/**
+ * Formats an epoch timestamp (ms) to readable Malaysia time (e.g. "4:35 PM")
+ */
+export function formatMalaysiaTime(timestampMs: number): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(new Date(timestampMs));
+  } catch (e) {
+    return new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
