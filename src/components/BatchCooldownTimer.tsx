@@ -34,6 +34,7 @@ export default function BatchCooldownTimer({
   const batchProgressPct = (batchCompleted / BATCH_SIZE) * 100;
 
   const remainingMs = cooldown ? Math.max(0, cooldown.endTime - nowTimestamp) : 0;
+  const elapsedSinceFinishedMs = cooldown ? Math.max(0, nowTimestamp - cooldown.endTime) : 0;
   const isActive = cooldown?.status === 'active' && remainingMs > 0;
   const isFinished = cooldown?.status === 'finished' || (cooldown?.status === 'active' && remainingMs === 0);
 
@@ -145,12 +146,25 @@ export default function BatchCooldownTimer({
                 </span>
               </div>
               <p className="text-[11px] font-semibold text-emerald-700 mt-0.5">
-                {accountName} is ready for the next 25 links!
+                Ready since <span className="font-bold text-emerald-900">{formatMalaysiaTime(cooldown.endTime)} MYT</span> &middot; Waiting for next sequence
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            <div
+              className="px-3 py-1.5 rounded-xl bg-white/90 border border-emerald-200/80 shadow-3xs flex items-center gap-1.5"
+              title="Time passed since 1h 30m break ended"
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-mono text-sm sm:text-base font-extrabold text-emerald-900 tabular-nums tracking-tight">
+                +{formatMillisecondsToCountdown(elapsedSinceFinishedMs)}
+              </span>
+              <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-wider">
+                ago
+              </span>
+            </div>
+
             <button
               type="button"
               onClick={() => onStartCooldown(latestCompletedMilestone || cooldown.milestone)}
@@ -238,6 +252,7 @@ export function FloatingCooldownPill({
   onScrollToTop,
 }: FloatingCooldownPillProps) {
   const remainingMs = cooldown ? Math.max(0, cooldown.endTime - nowTimestamp) : 0;
+  const elapsedSinceFinishedMs = cooldown ? Math.max(0, nowTimestamp - cooldown.endTime) : 0;
   const isActive = cooldown?.status === 'active' && remainingMs > 0;
   const isFinished = cooldown?.status === 'finished' || (cooldown?.status === 'active' && remainingMs === 0);
 
@@ -328,6 +343,7 @@ export function FloatingCooldownPill({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') onScrollToTop();
             }}
+            title="Time passed since 1h 30m break ended — click to jump to top"
             className="flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-2xl border bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-600/20 ring-4 ring-emerald-400/25 cursor-pointer transition-all select-none"
           >
             <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -335,11 +351,16 @@ export function FloatingCooldownPill({
             </div>
             <div className="flex flex-col min-w-0 leading-tight">
               <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-emerald-100">
-                1h 30m Break Complete
+                Break Over &middot; Next Sequence Ready
               </span>
-              <span className="text-xs font-bold truncate">
-                Ready for next 25 links!
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-sm font-extrabold tabular-nums tracking-tight">
+                  +{formatMillisecondsToCountdown(elapsedSinceFinishedMs)}
+                </span>
+                <span className="text-[9.5px] font-semibold text-emerald-100">
+                  ago
+                </span>
+              </div>
             </div>
             <button
               type="button"

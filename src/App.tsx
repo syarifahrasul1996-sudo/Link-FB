@@ -701,8 +701,12 @@ export default function App() {
             return next;
           });
         }
-      } else if (accountCooldowns[selectedTabId]?.status === 'finished') {
-        // Clear finished break banner automatically when continuing to the next batch
+      } else if (
+        accountCooldowns[selectedTabId] &&
+        (accountCooldowns[selectedTabId].status === 'finished' ||
+          accountCooldowns[selectedTabId].endTime <= Date.now())
+      ) {
+        // Clear finished break timer automatically when clicking the next sequence
         dismissCooldownForTab(selectedTabId);
       }
     } else {
@@ -956,10 +960,16 @@ export default function App() {
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {accountCooldowns[selectedTabId]?.status === 'active' && accountCooldowns[selectedTabId].endTime > nowTimestamp && (
+                {isActiveTabInCooldown && activeCooldown && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-mono text-[9.5px] font-extrabold tabular-nums">
                     <Clock className="w-2.5 h-2.5" />
-                    {formatMillisecondsToCountdown(accountCooldowns[selectedTabId].endTime - nowTimestamp)}
+                    {formatMillisecondsToCountdown(activeCooldown.endTime - nowTimestamp)}
+                  </span>
+                )}
+                {isActiveTabCooldownFinished && activeCooldown && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono text-[9.5px] font-extrabold tabular-nums">
+                    <Clock className="w-2.5 h-2.5" />
+                    +{formatMillisecondsToCountdown(Math.max(0, nowTimestamp - activeCooldown.endTime))}
                   </span>
                 )}
                 <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${dropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
@@ -976,6 +986,12 @@ export default function App() {
                   const progress = allTabsProgressInfo[tab.id];
                   const tabCooldown = accountCooldowns[tab.id];
                   const tabRemainingMs = tabCooldown?.status === 'active' ? Math.max(0, tabCooldown.endTime - nowTimestamp) : 0;
+                  const tabIsFinished = Boolean(
+                    tabCooldown &&
+                      (tabCooldown.status === 'finished' ||
+                        (tabCooldown.status === 'active' && tabCooldown.endTime <= nowTimestamp))
+                  );
+                  const tabElapsedMs = tabCooldown ? Math.max(0, nowTimestamp - tabCooldown.endTime) : 0;
                   
                   return (
                     <button
@@ -1003,6 +1019,12 @@ export default function App() {
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-mono text-[9px] font-extrabold tabular-nums">
                               <Clock className="w-2.5 h-2.5" />
                               {formatMillisecondsToCountdown(tabRemainingMs)}
+                            </span>
+                          )}
+                          {tabIsFinished && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono text-[9px] font-extrabold tabular-nums">
+                              <Clock className="w-2.5 h-2.5" />
+                              +{formatMillisecondsToCountdown(tabElapsedMs)}
                             </span>
                           )}
                           {isSelected && (
